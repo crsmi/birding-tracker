@@ -373,6 +373,10 @@
         DOM.loadingText.textContent = `Parsing: ${pct}%`;
       });
 
+      DOM.importStatus.textContent = 'Clearing previous observations...';
+      DOM.loadingText.textContent = 'Clearing database...';
+      await DB.clearObservations();
+
       DOM.importStatus.textContent = `Storing ${records.length.toLocaleString()} records...`;
       DOM.loadingText.textContent = 'Storing data...';
 
