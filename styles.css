@@ -1773,4 +1773,406 @@ a:hover {
   box-shadow: 0 0 10px rgba(20, 184, 166, 0.2);
 }
 
+/* ==========================================================================
+   27. Mobile & Tablet Responsiveness Enhancements
+   ========================================================================== */
+
+/* Mobile UI Elements */
+.btn-sidebar-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-xl);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  padding: var(--space-2);
+  line-height: 1;
+  transition: color var(--transition-fast);
+}
+.btn-sidebar-toggle:hover {
+  color: var(--color-accent);
+}
+
+.btn-sidebar-close {
+  display: none;
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-xl);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+  z-index: 10;
+}
+.btn-sidebar-close:hover {
+  color: var(--color-danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: calc(var(--z-modal) - 1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-base);
+}
+.sidebar-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Collapsible Timeframe Analyzer styling */
+.tick-analyzer-bar__header {
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  display: block;
+}
+.analyzer-toggle-chevron {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  transition: transform var(--transition-fast);
+  margin-left: var(--space-2);
+}
+.tick-analyzer-bar__header[aria-expanded="true"] .analyzer-toggle-chevron {
+  transform: rotate(180deg);
+}
+
+/* Sticky columns for species grid */
+.data-grid th:nth-child(1),
+.data-grid td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: var(--color-surface);
+}
+.data-grid th:nth-child(2),
+.data-grid td:nth-child(2) {
+  position: sticky;
+  left: 44px; /* Width of Target toggle column */
+  z-index: 10;
+  background: var(--color-surface);
+  border-right: 2px solid var(--color-border);
+}
+.data-grid th:nth-child(1),
+.data-grid th:nth-child(2) {
+  background: var(--color-bg-elevated) !important;
+  z-index: 11;
+}
+
+/* Opaque row backgrounds to prevent cell scroll overlap transparent look */
+.data-grid tbody tr:hover td:nth-child(1),
+.data-grid tbody tr:hover td:nth-child(2) {
+  background: var(--color-surface-hover) !important;
+}
+.data-grid tbody tr.row--target td:nth-child(1),
+.data-grid tbody tr.row--target td:nth-child(2) {
+  background: hsl(175, 65%, 6%) !important;
+}
+.data-grid tbody tr.row--target:hover td:nth-child(1),
+.data-grid tbody tr.row--target:hover td:nth-child(2) {
+  background: hsla(175, 65%, 48%, 0.12) !important;
+}
+.data-grid tbody tr.row--past-due td:nth-child(1),
+.data-grid tbody tr.row--past-due td:nth-child(2) {
+  background: hsl(30, 100%, 6%) !important;
+}
+.data-grid tbody tr.row--past-due:hover td:nth-child(1),
+.data-grid tbody tr.row--past-due:hover td:nth-child(2) {
+  background: hsla(30, 100%, 55%, 0.12) !important;
+}
+
+/* Modern Dynamic Viewport Heights */
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Responsive Overrides (max-width: 768px) */
+@media (max-width: 768px) {
+  body {
+    overflow: hidden;
+  }
+  
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--header-height) 1fr;
+    grid-template-areas:
+      "header"
+      "main";
+    height: 100vh;
+    height: 100dvh;
+    width: 100vw;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-main {
+    height: calc(100vh - var(--header-height));
+    height: calc(100dvh - var(--header-height));
+    min-height: 0; /* Clear flex height bug */
+    width: 100vw;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .grid-wrapper, 
+  .tick-explorer-wrapper, 
+  .settings-wrapper {
+    min-height: 0; /* Force scroll overflow height containment */
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100vw;
+    max-width: 100%;
+    padding: var(--space-4);
+  }
+
+  /* Header Optimization */
+  .app-header {
+    padding: 0 var(--space-3);
+    justify-content: flex-start;
+  }
+
+  .btn-sidebar-toggle {
+    display: inline-flex;
+    margin-right: var(--space-2);
+  }
+
+  .app-header__brand {
+    gap: var(--space-1);
+  }
+  
+  .app-header__logo {
+    font-size: var(--font-size-md);
+  }
+
+  .app-header__title {
+    font-size: var(--font-size-base);
+  }
+
+  .app-header__nav {
+    margin-left: auto;
+    gap: 0;
+  }
+
+  .header-tab {
+    padding: 0 var(--space-2);
+    font-size: var(--font-size-xs);
+    gap: 4px;
+  }
+
+  .app-header__actions {
+    display: none; /* Dynamic JS reposition moves this to sidebar drawer */
+  }
+
+  /* Sidebar slide-out drawer mode */
+  .btn-sidebar-close {
+    display: flex;
+  }
+
+  .app-sidebar {
+    display: flex !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    height: 100dvh;
+    z-index: var(--z-modal);
+    transform: translateX(-100%);
+    transition: transform var(--transition-base);
+    background: var(--color-bg-secondary);
+    border-right: 1px solid var(--color-border);
+    padding-top: var(--space-12); /* Room for close button */
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .app-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  /* Repositioned Actions inside Sidebar */
+  .app-sidebar .app-header__actions {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-2);
+    margin-top: var(--space-6);
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  .app-sidebar .app-header__actions .btn {
+    width: 100%;
+    justify-content: flex-start;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  /* Grid YoY Scroll and width bounds */
+  .grid-wrapper {
+    width: 100vw;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .stats-bar {
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+    justify-content: flex-start;
+    overflow-x: auto;
+    white-space: nowrap;
+    width: 100vw;
+    max-width: 100%;
+  }
+
+  .stat-chip {
+    padding: 2px 8px;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  /* Tick Explorer Stack layout */
+  .tick-stats-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: var(--space-2);
+  }
+
+  .tick-card {
+    padding: var(--space-2) var(--space-1);
+    align-items: center;
+    text-align: center;
+    gap: 2px;
+  }
+
+  .tick-card__label {
+    font-size: 9px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .tick-card__value {
+    font-size: var(--font-size-md);
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    line-height: 1.2;
+  }
+
+  .tick-card__sub {
+    display: none !important;
+  }
+
+  .tick-analyzer-bar {
+    padding: var(--space-3);
+  }
+
+  .tick-analyzer-bar__controls {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+    transition: max-height var(--transition-base) ease-in-out, opacity var(--transition-base);
+  }
+
+  .tick-analyzer-bar__controls.is-expanded {
+    max-height: 600px;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .analyzer-date-label {
+    width: 100%;
+  }
+
+  .control-date--sm,
+  .analyzer-date-label select {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .tick-dashboard-body {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-3);
+  }
+
+  .map-container {
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 5 / 4;
+  }
+
+  .chart-container {
+    height: 140px;
+  }
+
+  .tick-card-panel {
+    padding: var(--space-3);
+  }
+
+  .tick-card-panel--flex {
+    max-height: 380px;
+  }
+
+  /* Settings Stack view */
+  .settings-wrapper {
+    padding: var(--space-4);
+    gap: var(--space-4);
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-4);
+  }
+
+  .settings-card {
+    padding: var(--space-4);
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header__title {
+    display: none; /* Hide branding text on extra small mobile to fit tabs */
+  }
+  
+  .header-tab {
+    padding: 0 var(--space-2);
+    font-size: 11px;
+    gap: 2px;
+  }
+}
+
+
 

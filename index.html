@@ -23,6 +23,7 @@
          HEADER
          ================================================================ -->
     <header class="app-header">
+      <button id="btn-toggle-sidebar" class="btn-sidebar-toggle" aria-label="Toggle Filters">☰</button>
       <div class="app-header__brand">
         <span class="app-header__logo">🐦</span>
         <h1 class="app-header__title">Birding Tracker</h1>
@@ -50,6 +51,8 @@
          SIDEBAR
          ================================================================ -->
     <aside class="app-sidebar" id="sidebar">
+      <!-- Mobile Sidebar Close Button -->
+      <button id="btn-close-sidebar" class="btn-sidebar-close" aria-label="Close Filters">×</button>
       <!-- File Import -->
       <div class="sidebar-section">
         <span class="sidebar-section__title">📂 Data Import</span>
@@ -234,15 +237,17 @@
 
         <!-- Date Range Sighting Analyzer -->
         <div class="tick-analyzer-bar">
-          <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: 2px;">
-            <div class="tick-analyzer-bar__title">📅 Sighting Timeframe Analyzer</div>
-            <div id="tick-analyzer-summary" style="display: none; align-items: center; gap: 6px; flex-wrap: wrap;">
-              <span id="tick-analyzer-start" style="font-size: 11px; padding: 4px 8px; font-weight: bold; background: rgba(96, 165, 250, 0.15); color: rgb(96, 165, 250); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: var(--radius-sm);">Start: 0 Ticks</span>
-              <span id="tick-analyzer-end" style="font-size: 11px; padding: 4px 8px; font-weight: bold; background: rgba(167, 139, 250, 0.15); color: rgb(167, 139, 250); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: var(--radius-sm);">End: 0 Ticks</span>
-              <span id="tick-analyzer-added" style="font-size: 11px; padding: 4px 8px; font-weight: bold; background: rgba(239, 68, 68, 0.15); color: rgb(239, 68, 68); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);">+0 Ticks Gained</span>
+          <button id="btn-toggle-analyzer" class="tick-analyzer-bar__header" type="button" aria-expanded="false" title="Toggle Analyzer Controls">
+            <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
+              <div class="tick-analyzer-bar__title">📅 Sighting Timeframe Analyzer <span class="analyzer-toggle-chevron">▼</span></div>
+              <div id="tick-analyzer-summary" style="display: none; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <span id="tick-analyzer-start" style="font-size: 11px; padding: 4px 8px; font-weight: bold; background: rgba(96, 165, 250, 0.15); color: rgb(96, 165, 250); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: var(--radius-sm);">Start: 0 Ticks</span>
+                <span id="tick-analyzer-end" style="font-size: 11px; padding: 4px 8px; font-weight: bold; background: rgba(167, 139, 250, 0.15); color: rgb(167, 139, 250); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: var(--radius-sm);">End: 0 Ticks</span>
+                <span id="tick-analyzer-added" style="font-size: 11px; padding: 4px 8px; font-weight: bold; background: rgba(239, 68, 68, 0.15); color: rgb(239, 68, 68); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);">+0 Ticks Gained</span>
+              </div>
             </div>
-          </div>
-          <div class="tick-analyzer-bar__controls">
+          </button>
+          <div class="tick-analyzer-bar__controls" id="analyzer-controls">
             <label class="analyzer-date-label">
               Start Date
               <input type="date" id="tick-date-start" class="control-date control-date--sm" />
@@ -461,6 +466,9 @@
       </div>
     </main>
   </div>
+
+  <!-- Sidebar Backdrop -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
   <!-- Toast container -->
   <div class="toast-container" id="toast-container"></div>

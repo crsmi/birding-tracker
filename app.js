@@ -62,6 +62,11 @@
   const $ = (id) => document.getElementById(id);
 
   const DOM = {
+    btnToggleSidebar: $('btn-toggle-sidebar'),
+    btnCloseSidebar: $('btn-close-sidebar'),
+    sidebarBackdrop: $('sidebar-backdrop'),
+    btnToggleAnalyzer: $('btn-toggle-analyzer'),
+    analyzerControls: $('analyzer-controls'),
     inputFile: $('input-file'),
     inputFileDrop: $('input-file-drop'),
     dropZone: $('drop-zone'),
@@ -1319,6 +1324,14 @@
     if (state.activeTab === tab) return;
     state.activeTab = tab;
     syncViewVisibility();
+
+    // Auto-close mobile sidebar drawer on tab switch
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = DOM.sidebarBackdrop;
+    if (sidebar && backdrop) {
+      sidebar.classList.remove('is-open');
+      backdrop.classList.remove('is-open');
+    }
 
     if (state.activeTab === 'tick') {
       await renderTickExplorer();
@@ -3399,6 +3412,60 @@
      ----------------------------------------------------------------------- */
 
   function bindEvents() {
+    // Window Resize - Reposition header actions
+    window.addEventListener('resize', debounce(repositionHeaderActions, 150));
+
+    // Mobile Sidebar Drawer Toggle
+    if (DOM.btnToggleSidebar) {
+      DOM.btnToggleSidebar.addEventListener('click', () => {
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = DOM.sidebarBackdrop;
+        if (sidebar && backdrop) {
+          sidebar.classList.add('is-open');
+          backdrop.classList.add('is-open');
+        }
+      });
+    }
+
+    if (DOM.btnCloseSidebar) {
+      DOM.btnCloseSidebar.addEventListener('click', () => {
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = DOM.sidebarBackdrop;
+        if (sidebar && backdrop) {
+          sidebar.classList.remove('is-open');
+          backdrop.classList.remove('is-open');
+        }
+      });
+    }
+
+    if (DOM.sidebarBackdrop) {
+      DOM.sidebarBackdrop.addEventListener('click', () => {
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = DOM.sidebarBackdrop;
+        if (sidebar && backdrop) {
+          sidebar.classList.remove('is-open');
+          backdrop.classList.remove('is-open');
+        }
+      });
+    }
+
+    // Collapsible Timeframe Analyzer on Mobile
+    if (DOM.btnToggleAnalyzer && DOM.analyzerControls) {
+      DOM.btnToggleAnalyzer.addEventListener('click', () => {
+        const controls = DOM.analyzerControls;
+        const button = DOM.btnToggleAnalyzer;
+        const expanded = button.getAttribute('aria-expanded') === 'true';
+        button.setAttribute('aria-expanded', !expanded);
+        if (!expanded) {
+          controls.classList.add('is-expanded');
+          button.classList.add('is-active');
+        } else {
+          controls.classList.remove('is-expanded');
+          button.classList.remove('is-active');
+        }
+      });
+    }
+
     // Prevent default drag & drop behaviors on the entire window
     window.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -4024,6 +4091,25 @@
     document.querySelectorAll('.quick-pick-btn').forEach(b => b.classList.remove('is-active'));
   }
 
+  function repositionHeaderActions() {
+    const actions = document.querySelector('.app-header__actions');
+    const sidebar = document.getElementById('sidebar');
+    const header = document.querySelector('.app-header');
+    
+    if (!actions) return;
+
+    if (window.innerWidth <= 768) {
+      if (sidebar && actions.parentElement !== sidebar) {
+        // Append actions at the bottom of the sidebar drawer on mobile
+        sidebar.appendChild(actions);
+      }
+    } else {
+      if (header && actions.parentElement !== header) {
+        header.appendChild(actions);
+      }
+    }
+  }
+
   /* -----------------------------------------------------------------------
      16. Boot
      ----------------------------------------------------------------------- */
@@ -4033,6 +4119,7 @@
     DOM.filterSimDate.value = formatDateISO(state.simDate);
     state.targetYear = new Date().getFullYear();
     bindEvents();
+    repositionHeaderActions();
     state.aggregateSubspecies = DOM.toggleAggregate.checked;
     state.showTrueSpeciesOnly = DOM.toggleTrueSpecies.checked;
 
