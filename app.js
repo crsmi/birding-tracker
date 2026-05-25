@@ -481,7 +481,7 @@
             latitude: loc.lat,
             longitude: loc.lng,
             date: dateStr,
-            time: `0${6 + Math.floor(Math.random() * 6)}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
+            time: `${String(6 + Math.floor(Math.random() * 6)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
             year: year,
             dayOfYear: doy,
             protocol: Math.random() > 0.3 ? 'Traveling' : 'Stationary',
@@ -585,7 +585,7 @@
   function populateYearFilter() {
     const currentYear = new Date().getFullYear();
     DOM.filterYear.innerHTML = '';
-    for (let y = currentYear; y >= currentYear - 6; y--) {
+    for (let y = currentYear; y >= currentYear - 8; y--) {
       const opt = document.createElement('option');
       opt.value = y;
       opt.textContent = y;
@@ -663,8 +663,9 @@
 
     for (const [name, sp] of speciesMap) {
       const doys = sp.allDaysOfYear;
-      const earliestDoy = Math.min(...doys);
-      const latestDoy = Math.max(...doys);
+      // Use reduce instead of Math.min/max spread to avoid stack overflow on large arrays
+      const earliestDoy = doys.reduce((a, b) => Math.min(a, b), Infinity);
+      const latestDoy = doys.reduce((a, b) => Math.max(a, b), -Infinity);
 
       const yoyChecks = {};
       for (const y of yearsToShow) {
@@ -673,7 +674,25 @@
 
       const isTarget = state.targets.has(name);
       const seenInTargetYear = sp.yearsSeen.has(currentYear);
-      const isPastDue = isTarget && !seenInTargetYear && simDateDoy > earliestDoy;
+
+      // Past Due logic with winter species wrapping awareness:
+      // If earliestDoy > latestDoy, the species wraps around the year boundary
+      // (e.g., Snowy Owl: earliest=310 (Nov), latest=80 (Mar)).
+      // For wrapping species, they are "past due" if simDate is in the gap
+      // between latestDoy and earliestDoy (the months they are NOT present).
+      // For non-wrapping species, past due if simDateDoy > earliestDoy.
+      let isPastDue = false;
+      if (isTarget && !seenInTargetYear) {
+        const isWinterWrapping = earliestDoy > latestDoy;
+        if (isWinterWrapping) {
+          // Species wraps: present from earliestDoy (fall) through year end and
+          // from year start through latestDoy (spring). Past due if we're in the
+          // "presence window" but haven't seen it.
+          isPastDue = simDateDoy >= earliestDoy || simDateDoy <= latestDoy;
+        } else {
+          isPastDue = simDateDoy > earliestDoy;
+        }
+      }
 
       results.push({
         commonName: name,

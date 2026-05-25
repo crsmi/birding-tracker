@@ -60,21 +60,6 @@ function openDB() {
   });
 }
 
-/**
- * Generic helper: run a transaction and return a promise.
- */
-function txPromise(storeName, mode, callback) {
-  return openDB().then(db => {
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(storeName, mode);
-      const store = tx.objectStore(storeName);
-      const result = callback(store, tx);
-      tx.oncomplete = () => resolve(result._value !== undefined ? result._value : undefined);
-      tx.onerror = () => reject(tx.error);
-    });
-  });
-}
-
 /* --------------------------------------------------------------------------
    Observations
    -------------------------------------------------------------------------- */
