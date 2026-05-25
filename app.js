@@ -724,17 +724,6 @@
         displayName = stripSubspecies(displayName);
       }
 
-      // Taxonomic lumps (AOS/eBird lumps historically split species)
-      const TAXONOMIC_LUMPS = {
-        'Common Redpoll': 'Redpoll',
-        'Hoary Redpoll': 'Redpoll',
-        'Pacific-slope Flycatcher': 'Western Flycatcher',
-        'Cordilleran Flycatcher': 'Western Flycatcher',
-      };
-      if (TAXONOMIC_LUMPS[displayName]) {
-        displayName = TAXONOMIC_LUMPS[displayName];
-      }
-
       if (!speciesMap.has(displayName)) {
         speciesMap.set(displayName, {
           commonName: displayName,
