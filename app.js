@@ -663,9 +663,45 @@
 
     for (const [name, sp] of speciesMap) {
       const doys = sp.allDaysOfYear;
-      // Use reduce instead of Math.min/max spread to avoid stack overflow on large arrays
-      const earliestDoy = doys.reduce((a, b) => Math.min(a, b), Infinity);
-      const latestDoy = doys.reduce((a, b) => Math.max(a, b), -Infinity);
+      let earliestDoy = Infinity;
+      let latestDoy = -Infinity;
+
+      if (doys.length > 0) {
+        const uniqueDoys = [...new Set(doys)].sort((a, b) => a - b);
+        if (uniqueDoys.length === 1) {
+          earliestDoy = uniqueDoys[0];
+          latestDoy = uniqueDoys[0];
+        } else {
+          // Find the largest gap between consecutive sightings
+          let maxGapSize = 0;
+          let maxGapIndex = -1;
+
+          for (let i = 0; i < uniqueDoys.length - 1; i++) {
+            const gap = uniqueDoys[i + 1] - uniqueDoys[i];
+            if (gap > maxGapSize) {
+              maxGapSize = gap;
+              maxGapIndex = i;
+            }
+          }
+
+          // Also check wrap-around gap at the end of the year
+          const wrapGap = (365 - uniqueDoys[uniqueDoys.length - 1]) + uniqueDoys[0];
+
+          // A winter wrapping species has its largest gap in the middle of the year (summer)
+          // and this gap is substantial (e.g., > 140 days).
+          if (maxGapSize > wrapGap && maxGapSize > 140 && maxGapIndex !== -1) {
+            // Summer gap: the bird is absent between uniqueDoys[maxGapIndex] and uniqueDoys[maxGapIndex+1]
+            // Arrival in fall is the first day after the gap
+            earliestDoy = uniqueDoys[maxGapIndex + 1];
+            // Departure in spring is the last day before the gap
+            latestDoy = uniqueDoys[maxGapIndex];
+          } else {
+            // Standard contiguous presence
+            earliestDoy = uniqueDoys[0];
+            latestDoy = uniqueDoys[uniqueDoys.length - 1];
+          }
+        }
+      }
 
       const yoyChecks = {};
       for (const y of yearsToShow) {
