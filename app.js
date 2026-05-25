@@ -124,6 +124,9 @@
     mapLegendMin: $('map-legend-min'),
     mapLegendMax: $('map-legend-max'),
     analyzerSummary: $('tick-analyzer-summary'),
+    analyzerStart: $('tick-analyzer-start'),
+    analyzerEnd: $('tick-analyzer-end'),
+    analyzerAdded: $('tick-analyzer-added'),
     btnDownloadMap: $('btn-download-map'),
     btnDownloadCsv: $('btn-download-csv'),
 
@@ -1420,13 +1423,23 @@
       // Update analyzer summary badge
       const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
       if (isTimeframeActive && DOM.analyzerSummary) {
+        const startTotal = state.tickDateStart
+          ? state.tickMilestones.filter(m => m.date < state.tickDateStart).length
+          : 0;
+        const endTotal = state.tickDateEnd
+          ? state.tickMilestones.filter(m => m.date <= state.tickDateEnd).length
+          : state.tickMilestones.length;
         const addedTotal = state.tickMilestones.filter(m => {
           if (state.tickDateStart && m.date < state.tickDateStart) return false;
           if (state.tickDateEnd && m.date > state.tickDateEnd) return false;
           return true;
         }).length;
-        DOM.analyzerSummary.textContent = `+${addedTotal} Ticks Gained`;
-        DOM.analyzerSummary.style.display = 'inline-block';
+
+        if (DOM.analyzerStart) DOM.analyzerStart.textContent = `Start: ${startTotal} Ticks`;
+        if (DOM.analyzerEnd) DOM.analyzerEnd.textContent = `End: ${endTotal} Ticks`;
+        if (DOM.analyzerAdded) DOM.analyzerAdded.textContent = `+${addedTotal} Ticks Gained`;
+
+        DOM.analyzerSummary.style.display = 'flex';
       } else if (DOM.analyzerSummary) {
         DOM.analyzerSummary.style.display = 'none';
       }
