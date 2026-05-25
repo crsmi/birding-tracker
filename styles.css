@@ -1504,6 +1504,14 @@ a:hover {
   font-weight: var(--font-weight-semibold);
   text-align: right;
 }
+/* Timeline additions items */
+
+/* Desktop default label visibility */
+.label-short { display: none; }
+.label-long { display: inline; }
+
+/* Group header row — hidden on desktop, visible on mobile */
+.subregion-group-row { display: none; }
 
 /* Timeline additions items */
 
@@ -2128,22 +2136,120 @@ body {
     gap: var(--space-3);
   }
 
-  .map-container {
-    width: 100%;
+  /* Grid overflow containment — prevent intrinsic content from stretching columns */
+  .tick-column {
+    min-width: 0;
     max-width: 100%;
-    aspect-ratio: 5 / 4;
-  }
-
-  .chart-container {
-    height: 140px;
+    overflow: hidden;
   }
 
   .tick-card-panel {
-    padding: var(--space-3);
+    padding: var(--space-2);
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .tick-card-panel__title {
+    font-size: var(--font-size-sm);
+    flex-wrap: wrap;
+    gap: 4px;
   }
 
   .tick-card-panel--flex {
     max-height: 380px;
+  }
+
+  /* Map + Chart containment */
+  .map-container {
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 5 / 4;
+    box-sizing: border-box;
+  }
+
+  .chart-container {
+    height: 140px;
+    max-width: 100%;
+  }
+
+  /* Tick explorer wrapper overflow lock */
+  .tick-explorer-wrapper {
+    overflow-x: hidden !important;
+    padding: var(--space-2);
+    gap: var(--space-3);
+  }
+
+  /* Subregion table — hide State column, compact headers */
+  .subregion-list-table .col-state,
+  .subregion-list-table td:nth-child(2) {
+    display: none;
+  }
+
+  .subregion-group-row {
+    display: table-row;
+  }
+
+  .subregion-group-row th {
+    padding: 2px var(--space-2) !important;
+    border-bottom: none !important;
+  }
+
+  .subregion-group-label {
+    font-size: 8px !important;
+    color: var(--color-text-tertiary) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    border-bottom: 1px solid var(--color-border-subtle) !important;
+  }
+
+  .subregion-list-table {
+    font-size: 10px;
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .subregion-list-table th {
+    padding: var(--space-1) var(--space-1);
+    font-size: 9px;
+    white-space: nowrap;
+  }
+
+  .subregion-list-table td {
+    padding: var(--space-1) var(--space-1);
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Label visibility for short/long names */
+  .label-short { display: inline; }
+  .label-long { display: none; }
+
+  /* Search box */
+  .tick-search-box {
+    margin-bottom: var(--space-2);
+  }
+
+  /* Subregion list wrapper */
+  .subregion-list-wrapper {
+    overflow-x: hidden;
+  }
+
+  /* Timeline additions compact */
+  .timeline-addition-item {
+    padding: var(--space-2);
+    gap: var(--space-2);
+  }
+
+  /* Map toolbar buttons compact */
+  .tick-card-panel__title .btn--xs {
+    font-size: 9px !important;
+    padding: 1px 4px !important;
+  }
+
+  .tick-card-panel__title .control-toggle {
+    font-size: 9px !important;
   }
 
   /* Settings Stack view */
