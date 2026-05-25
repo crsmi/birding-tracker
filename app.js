@@ -51,6 +51,7 @@
     tickDateEnd: '',
     selectedMapCounty: '',
     tickChartInstance: null,
+    visualCentroids: new Map(),
   };
 
   /* -----------------------------------------------------------------------
@@ -1648,6 +1649,185 @@
     return count > 0 ? [sumX / count, sumY / count] : null;
   }
 
+  function getFeatureVisualCenter(feature) {
+    const geom = feature.geometry;
+    if (!geom) return null;
+
+    let polygons = [];
+    if (geom.type === 'Polygon') {
+      polygons.push(geom.coordinates);
+    } else if (geom.type === 'MultiPolygon') {
+      let maxArea = 0;
+      let bestPoly = null;
+      for (const poly of geom.coordinates) {
+        if (poly[0]) {
+          const area = getPolygonArea(poly[0]);
+          if (area > maxArea) {
+            maxArea = area;
+            bestPoly = poly;
+          }
+        }
+      }
+      if (bestPoly) {
+        polygons.push(bestPoly);
+      } else {
+        polygons.push(geom.coordinates[0]);
+      }
+    }
+
+    if (polygons.length === 0 || !polygons[0] || !polygons[0][0]) return null;
+
+    return polylabel(polygons[0]);
+
+    function getPolygonArea(ring) {
+      let area = 0;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const p1 = ring[i];
+        const p2 = ring[j];
+        area += (p2[0] + p1[0]) * (p2[1] - p1[1]);
+      }
+      return Math.abs(area / 2);
+    }
+
+    function polylabel(polygon, precision = 0.5) {
+      const outerRing = polygon[0];
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const pt of outerRing) {
+        if (pt[0] < minX) minX = pt[0];
+        if (pt[0] > maxX) maxX = pt[0];
+        if (pt[1] < minY) minY = pt[1];
+        if (pt[1] > maxY) maxY = pt[1];
+      }
+
+      const width = maxX - minX;
+      const height = maxY - minY;
+      const cellSize = Math.min(width, height);
+      const h = cellSize / 2;
+
+      if (cellSize === 0) return [minX, minY];
+
+      const cells = [];
+
+      function createCell(x, y, h) {
+        const d = pointToPolygonDistance(x, y, polygon);
+        return {
+          x, y, h, d,
+          max: d + h * Math.SQRT2
+        };
+      }
+
+      // Helper to do sorted insertion
+      function insertSorted(arr, item) {
+        let low = 0;
+        let high = arr.length;
+        while (low < high) {
+          const mid = (low + high) >>> 1;
+          if (arr[mid].max > item.max) {
+            low = mid + 1;
+          } else {
+            high = mid;
+          }
+        }
+        arr.splice(low, 0, item);
+      }
+
+      // Seed cell with bounding box center
+      let bestCell = createCell(minX + width / 2, minY + height / 2, 0);
+
+      // Seed cell with simple average centroid of outer ring
+      let sumX = 0, sumY = 0;
+      for (const pt of outerRing) {
+        sumX += pt[0];
+        sumY += pt[1];
+      }
+      const cX = outerRing.length > 0 ? sumX / outerRing.length : minX;
+      const cY = outerRing.length > 0 ? sumY / outerRing.length : minY;
+      const centroidCell = createCell(cX, cY, 0);
+      if (centroidCell.d > bestCell.d) {
+        bestCell = centroidCell;
+      }
+
+      // Create initial grid of cells
+      for (let x = minX; x < maxX; x += cellSize) {
+        for (let y = minY; y < maxY; y += cellSize) {
+          const cell = createCell(x + h, y + h, h);
+          cells.push(cell);
+        }
+      }
+
+      cells.sort((a, b) => b.max - a.max);
+
+      let iterations = 0;
+      while (cells.length > 0 && iterations < 300) {
+        iterations++;
+        const cell = cells.shift();
+
+        if (cell.d > bestCell.d) {
+          bestCell = cell;
+        }
+
+        if (cell.max - bestCell.d <= precision) continue;
+
+        const newH = cell.h / 2;
+        const q1 = createCell(cell.x - newH, cell.y - newH, newH);
+        const q2 = createCell(cell.x + newH, cell.y - newH, newH);
+        const q3 = createCell(cell.x - newH, cell.y + newH, newH);
+        const q4 = createCell(cell.x + newH, cell.y + newH, newH);
+
+        if (q1.max > bestCell.d) insertSorted(cells, q1);
+        if (q2.max > bestCell.d) insertSorted(cells, q2);
+        if (q3.max > bestCell.d) insertSorted(cells, q3);
+        if (q4.max > bestCell.d) insertSorted(cells, q4);
+      }
+
+      return [bestCell.x, bestCell.y];
+    }
+
+    function pointToPolygonDistance(x, y, polygon) {
+      let inside = false;
+      let minDist = Infinity;
+
+      for (let r = 0; r < polygon.length; r++) {
+        const ring = polygon[r];
+
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          const p1 = ring[i];
+          const p2 = ring[j];
+
+          if (((p1[1] > y) !== (p2[1] > y)) &&
+              (x < (p2[0] - p1[0]) * (y - p1[1]) / (p2[1] - p1[1]) + p1[0])) {
+            inside = !inside;
+          }
+
+          const dist = pointToSegmentDistanceSquared(x, y, p1, p2);
+          if (dist < minDist) {
+            minDist = dist;
+          }
+        }
+      }
+
+      minDist = Math.sqrt(minDist);
+      return (inside ? 1 : -1) * minDist;
+    }
+
+    function pointToSegmentDistanceSquared(x, y, p1, p2) {
+      let dx = p2[0] - p1[0];
+      let dy = p2[1] - p1[1];
+
+      if (dx === 0 && dy === 0) {
+        return (x - p1[0]) * (x - p1[0]) + (y - p1[1]) * (y - p1[1]);
+      }
+
+      let t = ((x - p1[0]) * dx + (y - p1[1]) * dy) / (dx * dx + dy * dy);
+      t = Math.max(0, Math.min(1, t));
+
+      const px = p1[0] + t * dx;
+      const py = p1[1] + t * dy;
+
+      return (x - px) * (x - px) + (y - py) * (y - py);
+    }
+  }
+
   function getFeaturePath(feature, minX, maxX, minY, maxY, scale, offsetX, offsetY, isPreProjected) {
     const geom = feature.geometry;
     if (!geom) return '';
@@ -1745,6 +1925,7 @@
 
     const fragmentPaths = document.createDocumentFragment();
     const fragmentLabels = document.createDocumentFragment();
+    const placedLabels = [];
 
     for (const feature of features) {
       const pathStr = getFeaturePath(feature, minX, maxX, minY, maxY, scale, offsetX, offsetY, isPreProjected);
@@ -1891,17 +2072,78 @@
       }
 
       if (labelText) {
-        const centroid = getPolygonCentroid(feature);
-        if (centroid) {
-          const ptX = centroid[0];
-          const ptY = centroid[1];
+        const cacheKey = feature.id || lookupKey;
+        let visualCenter = state.visualCentroids.get(cacheKey);
+        if (!visualCenter) {
+          visualCenter = getFeatureVisualCenter(feature);
+          if (visualCenter) state.visualCentroids.set(cacheKey, visualCenter);
+        }
+        const pt = visualCenter || getPolygonCentroid(feature);
+        if (pt) {
+          const ptX = pt[0];
+          const ptY = pt[1];
           const x = offsetX + (ptX - minX) * scale;
           const y = isPreProjected ? (offsetY + (ptY - minY) * scale) : (offsetY + (maxY - ptY) * scale);
+          
+          const labelWidth = labelText.length * 5.5 + 4;
+          const labelHeight = 11;
+          
+          let finalY = y;
+          let shifted = false;
+          
+          const shifts = [0, -11, 11, -22, 22, -33, 33];
+          for (const shift of shifts) {
+            const testY = y + shift;
+            const testBox = {
+              minX: x - labelWidth / 2,
+              maxX: x + labelWidth / 2,
+              minY: testY - labelHeight / 2,
+              maxY: testY + labelHeight / 2
+            };
+            
+            let overlaps = false;
+            for (const placed of placedLabels) {
+              if (!(testBox.minX > placed.maxX + 2 || 
+                    testBox.maxX < placed.minX - 2 || 
+                    testBox.minY > placed.maxY + 2 || 
+                    testBox.maxY < placed.minY - 2)) {
+                overlaps = true;
+                break;
+              }
+            }
+            
+            if (!overlaps) {
+              finalY = testY;
+              if (shift !== 0) {
+                shifted = true;
+              }
+              break;
+            }
+          }
+          
+          placedLabels.push({
+            minX: x - labelWidth / 2,
+            maxX: x + labelWidth / 2,
+            minY: finalY - labelHeight / 2,
+            maxY: finalY + labelHeight / 2
+          });
+          
+          if (shifted && Math.abs(finalY - y) > 12) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', x);
+            line.setAttribute('y1', y);
+            line.setAttribute('x2', x);
+            line.setAttribute('y2', finalY);
+            line.setAttribute('stroke', 'rgba(255, 255, 255, 0.4)');
+            line.setAttribute('stroke-width', '0.6px');
+            line.setAttribute('stroke-dasharray', '1, 2');
+            fragmentLabels.appendChild(line);
+          }
           
           const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           text.setAttribute('class', 'map-label');
           text.setAttribute('x', x);
-          text.setAttribute('y', y + 3);
+          text.setAttribute('y', finalY + 3);
           text.setAttribute('text-anchor', 'middle');
           text.style.pointerEvents = 'none';
           text.style.fontSize = '9px';
