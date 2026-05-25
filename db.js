@@ -3,12 +3,13 @@
    ========================================================================== */
 
 const DB_NAME = 'ebird-tracker-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const STORES = {
   OBSERVATIONS: 'observations',
   TARGETS: 'targets',
   SETTINGS: 'settings',
+  MAP_BOUNDARIES: 'map_boundaries',
 };
 
 let _dbInstance = null;
@@ -46,6 +47,11 @@ function openDB() {
       // --- settings store ---
       if (!db.objectStoreNames.contains(STORES.SETTINGS)) {
         db.createObjectStore(STORES.SETTINGS, { keyPath: 'key' });
+      }
+
+      // --- map_boundaries store ---
+      if (!db.objectStoreNames.contains(STORES.MAP_BOUNDARIES)) {
+        db.createObjectStore(STORES.MAP_BOUNDARIES, { keyPath: 'regionKey' });
       }
     };
 
@@ -168,6 +174,30 @@ function clearObservations() {
       const store = tx.objectStore(STORES.OBSERVATIONS);
       const request = store.clear();
       request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  });
+}
+
+/**
+ * Get the latest date among all observations.
+ * @returns {Promise<string|null>}
+ */
+function getLatestDate() {
+  return openDB().then(db => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.OBSERVATIONS, 'readonly');
+      const store = tx.objectStore(STORES.OBSERVATIONS);
+      const index = store.index('date');
+      const request = index.openCursor(null, 'prev'); // Starts from highest date
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          resolve(cursor.key); // Returns YYYY-MM-DD
+        } else {
+          resolve(null);
+        }
+      };
       request.onerror = () => reject(request.error);
     });
   });
@@ -338,15 +368,64 @@ function clearSettings() {
 function clearAll() {
   return openDB().then(db => {
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(
-        [STORES.OBSERVATIONS, STORES.TARGETS, STORES.SETTINGS],
-        'readwrite'
-      );
+      const activeStores = [STORES.OBSERVATIONS, STORES.TARGETS, STORES.SETTINGS];
+      if (db.objectStoreNames.contains(STORES.MAP_BOUNDARIES)) {
+        activeStores.push(STORES.MAP_BOUNDARIES);
+      }
+      const tx = db.transaction(activeStores, 'readwrite');
       tx.objectStore(STORES.OBSERVATIONS).clear();
       tx.objectStore(STORES.TARGETS).clear();
       tx.objectStore(STORES.SETTINGS).clear();
+      if (db.objectStoreNames.contains(STORES.MAP_BOUNDARIES)) {
+        tx.objectStore(STORES.MAP_BOUNDARIES).clear();
+      }
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+    });
+  });
+}
+
+/* --------------------------------------------------------------------------
+   Map Boundaries Cache
+   -------------------------------------------------------------------------- */
+
+/**
+ * Retrieve cached geographic boundary features for a region.
+ * @param {string} regionKey - The FIPS or state key (e.g. US-MN)
+ * @returns {Promise<any>}
+ */
+function getCachedBoundary(regionKey) {
+  return openDB().then(db => {
+    return new Promise((resolve, reject) => {
+      if (!db.objectStoreNames.contains(STORES.MAP_BOUNDARIES)) {
+        return resolve(null);
+      }
+      const tx = db.transaction(STORES.MAP_BOUNDARIES, 'readonly');
+      const store = tx.objectStore(STORES.MAP_BOUNDARIES);
+      const req = store.get(regionKey);
+      req.onsuccess = () => resolve(req.result ? req.result.data : null);
+      req.onerror = () => reject(req.error);
+    });
+  });
+}
+
+/**
+ * Cache geographic boundary features in IndexedDB.
+ * @param {string} regionKey - The FIPS or state key (e.g. US-MN)
+ * @param {any} data - The GeoJSON/TopoJSON boundary object
+ * @returns {Promise<void>}
+ */
+function saveCachedBoundary(regionKey, data) {
+  return openDB().then(db => {
+    return new Promise((resolve, reject) => {
+      if (!db.objectStoreNames.contains(STORES.MAP_BOUNDARIES)) {
+        return resolve();
+      }
+      const tx = db.transaction(STORES.MAP_BOUNDARIES, 'readwrite');
+      const store = tx.objectStore(STORES.MAP_BOUNDARIES);
+      const req = store.put({ regionKey, data, timestamp: Date.now() });
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
     });
   });
 }
@@ -359,6 +438,7 @@ window.DB = {
   getDistinctRegions,
   countObservations,
   clearObservations,
+  getLatestDate,
   getTargets,
   setTarget,
   putTargets,
@@ -367,6 +447,8 @@ window.DB = {
   setSetting,
   getAllSettings,
   clearSettings,
+  getCachedBoundary,
+  saveCachedBoundary,
   clearAll,
   STORES,
 };

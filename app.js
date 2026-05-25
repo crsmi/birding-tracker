@@ -12,6 +12,13 @@
 (function () {
   'use strict';
 
+  const SYSTEM_EXCLUSIONS = [
+    { id: 'sys-whooper-swan-wi', commonName: 'Whooper Swan', state: 'US-WI', county: '' },
+    { id: 'sys-mandarin-duck-wi', commonName: 'Mandarin Duck', state: 'US-WI', county: '' },
+    { id: 'sys-egyptian-goose-wi', commonName: 'Egyptian Goose', state: 'US-WI', county: '' },
+    { id: 'sys-chukar-wi', commonName: 'Chukar', state: 'US-WI', county: '' }
+  ];
+
   /* -----------------------------------------------------------------------
      1. State
      ----------------------------------------------------------------------- */
@@ -20,6 +27,8 @@
     speciesData: [],         // Computed species grid data
     targets: new Map(),      // commonName -> { isTarget, addedAt }
     regions: [],             // [{state, county}]
+    userExclusions: [],      // Array of custom exotics exclusions: [{ id, commonName, state, county }]
+    disabledSystemExclusions: [], // Array of disabled default exotics IDs
     filterState: '',
     filterCounty: '',
     targetYear: new Date().getFullYear(),
@@ -33,6 +42,15 @@
     sortColumn: 'taxonomicOrder',
     sortDirection: 'asc',
     isDataLoaded: false,
+
+    // Tick Explorer State
+    activeTab: 'yoy',
+    tickMilestones: [],
+    tickSearchQuery: '',
+    tickDateStart: '',
+    tickDateEnd: '',
+    selectedMapCounty: '',
+    tickChartInstance: null,
   };
 
   /* -----------------------------------------------------------------------
@@ -66,6 +84,7 @@
     statBarSimDate: $('stat-bar-simdate'),
     statTotalRecords: $('stat-total-records'),
     statTotalSpecies: $('stat-total-species'),
+    statDateAsOf: $('stat-date-as-of'),
     alertsPanel: $('alerts-panel'),
     alertsList: $('alerts-list'),
     btnToggleAlerts: $('btn-toggle-alerts'),
@@ -79,6 +98,44 @@
     importProgressFill: $('import-progress-fill'),
     importStatus: $('import-status'),
     toastContainer: $('toast-container'),
+
+    // Tick Explorer DOM
+    tabYoY: $('tab-yoy'),
+    tabTick: $('tab-tick'),
+    tickExplorerWrapper: $('tick-explorer-wrapper'),
+    tickStatTotal: $('tick-stat-total'),
+    tickStatCounties: $('tick-stat-counties'),
+    tickStatTop: $('tick-stat-top'),
+    tickStatTopCount: $('tick-stat-top-count'),
+    tickDateStart: $('tick-date-start'),
+    tickDateEnd: $('tick-date-end'),
+    btnClearDateFilter: $('btn-clear-date-filter'),
+    tickSearchSubregions: $('tick-search-subregions'),
+    subregionListBody: $('subregion-list-body'),
+    timelineAdditionsList: $('timeline-additions-list'),
+    timelineAdditionsTitle: $('timeline-additions-title'),
+    tickSvgMap: $('tick-svg-map'),
+    mapNodesLayer: $('map-nodes-layer'),
+    mapEdgesLayer: $('map-edges-layer'),
+    mapLabelsLayer: $('map-labels-layer'),
+    mapTooltip: $('map-tooltip'),
+    mapColorMode: $('map-color-mode'),
+    mapLegendMin: $('map-legend-min'),
+    mapLegendMax: $('map-legend-max'),
+    analyzerSummary: $('tick-analyzer-summary'),
+    btnDownloadMap: $('btn-download-map'),
+    btnDownloadCsv: $('btn-download-csv'),
+
+    // Settings DOM
+    tabSettings: $('tab-settings'),
+    settingsWrapper: $('settings-wrapper'),
+    exclusionSpecies: $('exclusion-species'),
+    datalistSpecies: $('datalist-species'),
+    exclusionState: $('exclusion-state'),
+    exclusionCounty: $('exclusion-county'),
+    formAddExclusion: $('form-add-exclusion'),
+    userExclusionsBody: $('user-exclusions-body'),
+    systemExclusionsBody: $('system-exclusions-body'),
   };
 
   /* -----------------------------------------------------------------------
@@ -127,8 +184,8 @@
     const c = (commonName || '').toLowerCase();
     const s = (scientificName || '').toLowerCase();
 
-    // Slashes
-    if (c.includes('/') || s.includes('/')) return false;
+    // Slashes (only check common name, e.g. Cooper's/Sharp-shinned Hawk, as subspecies group scientific names may contain slashes)
+    if (c.includes('/')) return false;
 
     // Spuhs (ends with ' sp.' or ' sp' or contains ' sp.')
     if (c.includes(' sp.') || c.endsWith(' sp') || s.includes(' sp.') || s.endsWith(' sp')) return false;
@@ -156,6 +213,57 @@
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /** Check if a species sighting is non-countable in the given region (custom user rules or enabled system rules). */
+  function isNonCountable(obsCommonName, obsState, obsCounty) {
+    const name = (obsCommonName || '').trim().toLowerCase();
+    const sName = stripSubspecies(obsCommonName || '').trim().toLowerCase();
+    const s = (obsState || '').trim().toLowerCase();
+    const c = (obsCounty || '').trim().toLowerCase();
+
+    // Check user exclusions
+    if (state.userExclusions && Array.isArray(state.userExclusions)) {
+      for (const rule of state.userExclusions) {
+        const rName = (rule.commonName || '').trim().toLowerCase();
+        if (rName === name || rName === sName) {
+          const rState = (rule.state || '').trim().toLowerCase();
+          const rCounty = (rule.county || '').trim().toLowerCase();
+
+          // Rule matches if it has no state, or state matches
+          if (!rState || rState === s) {
+            // Rule matches if it has no county, or county matches
+            if (!rCounty || rCounty === c) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+
+    // Check system exclusions
+    if (SYSTEM_EXCLUSIONS && Array.isArray(SYSTEM_EXCLUSIONS)) {
+      for (const rule of SYSTEM_EXCLUSIONS) {
+        // Skip if this system rule has been disabled by the user
+        if (state.disabledSystemExclusions && state.disabledSystemExclusions.includes(rule.id)) {
+          continue;
+        }
+
+        const rName = (rule.commonName || '').trim().toLowerCase();
+        if (rName === name || rName === sName) {
+          const rState = (rule.state || '').trim().toLowerCase();
+          const rCounty = (rule.county || '').trim().toLowerCase();
+
+          if (!rState || rState === s) {
+            if (!rCounty || rCounty === c) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+
+    return false;
   }
 
   /* -----------------------------------------------------------------------
@@ -219,11 +327,7 @@
     return isNaN(d.getTime()) ? null : d;
   }
 
-  /** Convert a Date object to a day-of-year integer. */
-  function dateToDayOfYear(d) {
-    const start = new Date(d.getFullYear(), 0, 0);
-    return Math.floor((d - start) / 86400000);
-  }
+
 
   /**
    * Parse CSV text using PapaParse and return structured records.
@@ -292,7 +396,7 @@
               location,
               latitude,
               longitude,
-              date: dateStr,
+              date: formatDateISO(parsedDate),
               time,
               year: yearNum,
               dayOfYear,
@@ -404,179 +508,196 @@
     }
   }
 
-  /* -----------------------------------------------------------------------
-     8. Mock Data Generator
-     ----------------------------------------------------------------------- */
-
   function generateMockData() {
     showLoading('Generating mock eBird data...');
 
-    const MOCK_SPECIES = [
-      // Residents
-      { common: 'Northern Cardinal', scientific: 'Cardinalis cardinalis', order: 100, resident: true },
-      { common: 'Blue Jay', scientific: 'Cyanocitta cristata', order: 101, resident: true },
-      { common: 'American Crow', scientific: 'Corvus brachyrhynchos', order: 102, resident: true },
-      { common: 'Black-capped Chickadee', scientific: 'Poecile atricapillus', order: 103, resident: true },
-      { common: 'White-breasted Nuthatch', scientific: 'Sitta carolinensis', order: 104, resident: true },
-      { common: 'Downy Woodpecker', scientific: 'Dryobates pubescens', order: 105, resident: true },
-      { common: 'Red-bellied Woodpecker', scientific: 'Melanerpes carolinus', order: 106, resident: true },
-      { common: 'House Sparrow', scientific: 'Passer domesticus', order: 107, resident: true },
-      { common: 'American Goldfinch', scientific: 'Spinus tristis', order: 108, resident: true },
-      { common: 'Tufted Titmouse', scientific: 'Baeolophus bicolor', order: 109, resident: true },
-      { common: 'Dark-eyed Junco', scientific: 'Junco hyemalis', order: 110, resident: true },
-      { common: 'House Finch', scientific: 'Haemorhous mexicanus', order: 111, resident: true },
-      { common: 'Mourning Dove', scientific: 'Zenaida macroura', order: 112, resident: true },
-      { common: 'Red-tailed Hawk', scientific: 'Buteo jamaicensis', order: 113, resident: true },
-      { common: 'Cooper\'s Hawk', scientific: 'Accipiter cooperii', order: 114, resident: true },
+    DOM.importProgress.style.display = 'block';
+    DOM.importStatus.style.display = 'block';
+    DOM.importProgressFill.style.width = '0%';
+    DOM.importStatus.textContent = 'Clearing previous observations...';
+    DOM.loadingText.textContent = 'Clearing DB...';
 
-      // Summer breeders
-      { common: 'Baltimore Oriole', scientific: 'Icterus galbula', order: 200, earliest: 115, latest: 270 },
-      { common: 'Ruby-throated Hummingbird', scientific: 'Archilochus colubris', order: 201, earliest: 120, latest: 280 },
-      { common: 'Indigo Bunting', scientific: 'Passerina cyanea', order: 202, earliest: 125, latest: 265 },
-      { common: 'Rose-breasted Grosbeak', scientific: 'Pheucticus ludovicianus', order: 203, earliest: 118, latest: 268 },
-      { common: 'Eastern Kingbird', scientific: 'Tyrannus tyrannus', order: 204, earliest: 120, latest: 260 },
-      { common: 'Barn Swallow', scientific: 'Hirundo rustica', order: 205, earliest: 100, latest: 275 },
-      { common: 'Red-eyed Vireo', scientific: 'Vireo olivaceus', order: 206, earliest: 122, latest: 270 },
-      { common: 'Scarlet Tanager', scientific: 'Piranga olivacea', order: 207, earliest: 125, latest: 265 },
-      { common: 'Wood Thrush', scientific: 'Hylocichla mustelina', order: 208, earliest: 118, latest: 265 },
-      { common: 'Great Crested Flycatcher', scientific: 'Myiarchus crinitus', order: 209, earliest: 120, latest: 258 },
-      { common: 'Eastern Bluebird', scientific: 'Sialia sialis', order: 210, earliest: 60, latest: 320 },
-      { common: 'Gray Catbird', scientific: 'Dumetella carolinensis', order: 211, earliest: 115, latest: 285 },
-      { common: 'Common Yellowthroat', scientific: 'Geothlypis trichas', order: 212, earliest: 115, latest: 275 },
-      { common: 'Yellow Warbler', scientific: 'Setophaga petechia', order: 213, earliest: 118, latest: 255 },
-      { common: 'American Redstart', scientific: 'Setophaga ruticilla', order: 214, earliest: 122, latest: 260 },
+    DB.clearObservations().then(() => {
+      DOM.importProgressFill.style.width = '10%';
+      DOM.importStatus.textContent = 'Creating mock observations...';
+      DOM.loadingText.textContent = 'Creating data...';
 
-      // Transient warblers
-      { common: 'Blackburnian Warbler', scientific: 'Setophaga fusca', order: 300, earliest: 125, latest: 145 },
-      { common: 'Black-throated Green Warbler', scientific: 'Setophaga virens', order: 301, earliest: 120, latest: 150 },
-      { common: 'Cape May Warbler', scientific: 'Setophaga tigrina', order: 302, earliest: 128, latest: 148 },
-      { common: 'Bay-breasted Warbler', scientific: 'Setophaga castanea', order: 303, earliest: 130, latest: 150 },
-      { common: 'Tennessee Warbler', scientific: 'Leiothlypis peregrina', order: 304, earliest: 118, latest: 148 },
-      { common: 'Magnolia Warbler', scientific: 'Setophaga magnolia', order: 305, earliest: 120, latest: 150 },
-      { common: 'Chestnut-sided Warbler', scientific: 'Setophaga pensylvanica', order: 306, earliest: 122, latest: 148 },
+      const MOCK_SPECIES = [
+        // Residents
+        { common: 'Northern Cardinal', scientific: 'Cardinalis cardinalis', order: 100, resident: true },
+        { common: 'Blue Jay', scientific: 'Cyanocitta cristata', order: 101, resident: true },
+        { common: 'American Crow', scientific: 'Corvus brachyrhynchos', order: 102, resident: true },
+        { common: 'Black-capped Chickadee', scientific: 'Poecile atricapillus', order: 103, resident: true },
+        { common: 'White-breasted Nuthatch', scientific: 'Sitta carolinensis', order: 104, resident: true },
+        { common: 'Downy Woodpecker', scientific: 'Dryobates pubescens', order: 105, resident: true },
+        { common: 'Red-bellied Woodpecker', scientific: 'Melanerpes carolinus', order: 106, resident: true },
+        { common: 'House Sparrow', scientific: 'Passer domesticus', order: 107, resident: true },
+        { common: 'American Goldfinch', scientific: 'Spinus tristis', order: 108, resident: true },
+        { common: 'Tufted Titmouse', scientific: 'Baeolophus bicolor', order: 109, resident: true },
+        { common: 'Dark-eyed Junco', scientific: 'Junco hyemalis', order: 110, resident: true },
+        { common: 'House Finch', scientific: 'Haemorhous mexicanus', order: 111, resident: true },
+        { common: 'Mourning Dove', scientific: 'Zenaida macroura', order: 112, resident: true },
+        { common: 'Red-tailed Hawk', scientific: 'Buteo jamaicensis', order: 113, resident: true },
+        { common: 'Cooper\'s Hawk', scientific: 'Accipiter cooperii', order: 114, resident: true },
 
-      // Subspecies examples
-      { common: 'Yellow-rumped Warbler (Myrtle)', scientific: 'Setophaga coronata coronata', order: 310, earliest: 100, latest: 290 },
-      { common: 'Yellow-rumped Warbler (Audubon\'s)', scientific: 'Setophaga coronata auduboni', order: 311, earliest: 105, latest: 285 },
-      { common: 'Dark-eyed Junco (Slate-colored)', scientific: 'Junco hyemalis hyemalis', order: 312, resident: true },
+        // Summer breeders
+        { common: 'Baltimore Oriole', scientific: 'Icterus galbula', order: 200, earliest: 115, latest: 270 },
+        { common: 'Ruby-throated Hummingbird', scientific: 'Archilochus colubris', order: 201, earliest: 120, latest: 280 },
+        { common: 'Indigo Bunting', scientific: 'Passerina cyanea', order: 202, earliest: 125, latest: 265 },
+        { common: 'Rose-breasted Grosbeak', scientific: 'Pheucticus ludovicianus', order: 203, earliest: 118, latest: 268 },
+        { common: 'Eastern Kingbird', scientific: 'Tyrannus tyrannus', order: 204, earliest: 120, latest: 260 },
+        { common: 'Barn Swallow', scientific: 'Hirundo rustica', order: 205, earliest: 100, latest: 275 },
+        { common: 'Red-eyed Vireo', scientific: 'Vireo olivaceus', order: 206, earliest: 122, latest: 270 },
+        { common: 'Scarlet Tanager', scientific: 'Piranga olivacea', order: 207, earliest: 125, latest: 265 },
+        { common: 'Wood Thrush', scientific: 'Hylocichla mustelina', order: 208, earliest: 118, latest: 265 },
+        { common: 'Great Crested Flycatcher', scientific: 'Myiarchus crinitus', order: 209, earliest: 120, latest: 258 },
+        { common: 'Eastern Bluebird', scientific: 'Sialia sialis', order: 210, earliest: 60, latest: 320 },
+        { common: 'Gray Catbird', scientific: 'Dumetella carolinensis', order: 211, earliest: 115, latest: 285 },
+        { common: 'Common Yellowthroat', scientific: 'Geothlypis trichas', order: 212, earliest: 115, latest: 275 },
+        { common: 'Yellow Warbler', scientific: 'Setophaga petechia', order: 213, earliest: 118, latest: 255 },
+        { common: 'American Redstart', scientific: 'Setophaga ruticilla', order: 214, earliest: 122, latest: 260 },
 
-      // Winter visitors
-      { common: 'Snowy Owl', scientific: 'Bubo scandiacus', order: 400, earliest: 310, latest: 80, winter: true },
-      { common: 'Common Redpoll', scientific: 'Acanthis flammea', order: 401, earliest: 315, latest: 90, winter: true },
-      { common: 'Pine Siskin', scientific: 'Spinus pinus', order: 402, earliest: 280, latest: 120, winter: true },
+        // Transient warblers
+        { common: 'Blackburnian Warbler', scientific: 'Setophaga fusca', order: 300, earliest: 125, latest: 145 },
+        { common: 'Black-throated Green Warbler', scientific: 'Setophaga virens', order: 301, earliest: 120, latest: 150 },
+        { common: 'Cape May Warbler', scientific: 'Setophaga tigrina', order: 302, earliest: 128, latest: 148 },
+        { common: 'Bay-breasted Warbler', scientific: 'Setophaga castanea', order: 303, earliest: 130, latest: 150 },
+        { common: 'Tennessee Warbler', scientific: 'Leiothlypis peregrina', order: 304, earliest: 118, latest: 148 },
+        { common: 'Magnolia Warbler', scientific: 'Setophaga magnolia', order: 305, earliest: 120, latest: 150 },
+        { common: 'Chestnut-sided Warbler', scientific: 'Setophaga pensylvanica', order: 306, earliest: 122, latest: 148 },
 
-      // Waterbirds
-      { common: 'Great Blue Heron', scientific: 'Ardea herodias', order: 500, earliest: 70, latest: 320 },
-      { common: 'Green Heron', scientific: 'Butorides virescens', order: 501, earliest: 115, latest: 270 },
-      { common: 'Mallard', scientific: 'Anas platyrhynchos', order: 502, resident: true },
-      { common: 'Wood Duck', scientific: 'Aix sponsa', order: 503, earliest: 70, latest: 310 },
-      { common: 'Canada Goose', scientific: 'Branta canadensis', order: 504, resident: true },
-      { common: 'Sandhill Crane', scientific: 'Antigone canadensis', order: 505, earliest: 65, latest: 320 },
-      { common: 'Killdeer', scientific: 'Charadrius vociferus', order: 506, earliest: 60, latest: 310 },
+        // Subspecies examples
+        { common: 'Yellow-rumped Warbler (Myrtle)', scientific: 'Setophaga coronata coronata', order: 310, earliest: 100, latest: 290 },
+        { common: 'Yellow-rumped Warbler (Audubon\'s)', scientific: 'Setophaga coronata auduboni', order: 311, earliest: 105, latest: 285 },
+        { common: 'Dark-eyed Junco (Slate-colored)', scientific: 'Junco hyemalis hyemalis', order: 312, resident: true },
 
-      // Non-true species (spuhs, slashes, hybrids, domestic)
-      { common: 'gull sp.', scientific: 'Laridae sp.', order: 900, resident: true },
-      { common: "Cooper's/Sharp-shinned Hawk", scientific: 'Accipiter cooperii/striatus', order: 901, earliest: 50, latest: 320 },
-      { common: 'Mallard x American Black Duck hybrid', scientific: 'Anas platyrhynchos x rubripes', order: 902, resident: true },
-      { common: 'Mallard (Domestic type)', scientific: 'Anas platyrhynchos (Domestic type)', order: 903, resident: true },
-    ];
+        // Winter visitors
+        { common: 'Snowy Owl', scientific: 'Bubo scandiacus', order: 400, earliest: 310, latest: 80, winter: true },
+        { common: 'Common Redpoll', scientific: 'Acanthis flammea', order: 401, earliest: 315, latest: 90, winter: true },
+        { common: 'Pine Siskin', scientific: 'Spinus pinus', order: 402, earliest: 280, latest: 120, winter: true },
 
-    const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
-    const STATE = 'US-WI';
-    const LOCATIONS = [
-      { name: 'Pheasant Branch Conservancy', id: 'L123456', lat: 43.107, lng: -89.529, county: 'Dane' },
-      { name: 'UW Arboretum', id: 'L234567', lat: 43.041, lng: -89.427, county: 'Dane' },
-      { name: 'Picnic Point', id: 'L345678', lat: 43.089, lng: -89.419, county: 'Dane' },
-      { name: 'Governor Nelson State Park', id: 'L456789', lat: 43.152, lng: -89.512, county: 'Dane' },
-      { name: 'Cherokee Marsh', id: 'L567890', lat: 43.140, lng: -89.362, county: 'Dane' },
-      { name: 'Swan Lake WA', id: 'L678901', lat: 43.413, lng: -89.315, county: 'Columbia' },
-      { name: 'Mud Lake WA', id: 'L789012', lat: 43.466, lng: -89.359, county: 'Columbia' },
-    ];
+        // Waterbirds
+        { common: 'Great Blue Heron', scientific: 'Ardea herodias', order: 500, earliest: 70, latest: 320 },
+        { common: 'Green Heron', scientific: 'Butorides virescens', order: 501, earliest: 115, latest: 270 },
+        { common: 'Mallard', scientific: 'Anas platyrhynchos', order: 502, resident: true },
+        { common: 'Wood Duck', scientific: 'Aix sponsa', order: 503, earliest: 70, latest: 310 },
+        { common: 'Canada Goose', scientific: 'Branta canadensis', order: 504, resident: true },
+        { common: 'Sandhill Crane', scientific: 'Antigone canadensis', order: 505, earliest: 65, latest: 320 },
+        { common: 'Killdeer', scientific: 'Charadrius vociferus', order: 506, earliest: 60, latest: 310 },
 
-    const records = [];
-    let subId = 100000;
+        // Non-true species (spuhs, slashes, hybrids, domestic)
+        { common: 'gull sp.', scientific: 'Laridae sp.', order: 900, resident: true },
+        { common: "Cooper's/Sharp-shinned Hawk", scientific: 'Accipiter cooperii/striatus', order: 901, earliest: 50, latest: 320 },
+        { common: 'Mallard x American Black Duck hybrid', scientific: 'Anas platyrhynchos x rubripes', order: 902, resident: true },
+        { common: 'Mallard (Domestic type)', scientific: 'Anas platyrhynchos (Domestic type)', order: 903, resident: true },
+      ];
 
-    for (const year of YEARS) {
-      const maxDoy = year === 2026 ? 130 : 365;
+      const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
+      const STATE = 'US-WI';
+      const LOCATIONS = [
+        { name: 'Pheasant Branch Conservancy', id: 'L123456', lat: 43.107, lng: -89.529, county: 'Dane' },
+        { name: 'UW Arboretum', id: 'L234567', lat: 43.041, lng: -89.427, county: 'Dane' },
+        { name: 'Picnic Point', id: 'L345678', lat: 43.089, lng: -89.419, county: 'Dane' },
+        { name: 'Governor Nelson State Park', id: 'L456789', lat: 43.152, lng: -89.512, county: 'Dane' },
+        { name: 'Cherokee Marsh', id: 'L567890', lat: 43.140, lng: -89.362, county: 'Dane' },
+        { name: 'Swan Lake WA', id: 'L678901', lat: 43.413, lng: -89.315, county: 'Columbia' },
+        { name: 'Mud Lake WA', id: 'L789012', lat: 43.466, lng: -89.359, county: 'Columbia' },
+      ];
 
-      for (const sp of MOCK_SPECIES) {
-        let startDoy, endDoy;
-        if (sp.resident) {
-          startDoy = 1;
-          endDoy = 365;
-        } else if (sp.winter) {
-          startDoy = sp.earliest;
-          endDoy = sp.latest;
-        } else {
-          startDoy = sp.earliest || 1;
-          endDoy = sp.latest || 365;
-        }
+      const records = [];
+      let subId = 100000;
 
-        if (Math.random() < 0.15 && !sp.resident) continue;
+      for (const year of YEARS) {
+        const maxDoy = year === 2026 ? 130 : 365;
 
-        const numSightings = sp.resident
-          ? Math.floor(Math.random() * 12) + 4
-          : Math.floor(Math.random() * 6) + 2;
-
-        for (let s = 0; s < numSightings; s++) {
-          let doy;
-          if (sp.winter) {
-            if (startDoy > endDoy) {
-              doy = Math.random() < 0.5
-                ? Math.floor(Math.random() * (365 - startDoy + 1)) + startDoy
-                : Math.floor(Math.random() * endDoy) + 1;
-            } else {
-              doy = Math.floor(Math.random() * (endDoy - startDoy + 1)) + startDoy;
-            }
+        for (const sp of MOCK_SPECIES) {
+          let startDoy, endDoy;
+          if (sp.resident) {
+            startDoy = 1;
+            endDoy = 365;
+          } else if (sp.winter) {
+            startDoy = sp.earliest;
+            endDoy = sp.latest;
           } else {
-            const adjStart = Math.max(1, startDoy - 7 + Math.floor(Math.random() * 7));
-            const adjEnd = Math.min(365, endDoy + Math.floor(Math.random() * 7));
-            doy = Math.floor(Math.random() * (adjEnd - adjStart + 1)) + adjStart;
+            startDoy = sp.earliest || 1;
+            endDoy = sp.latest || 365;
           }
 
-          if (doy > maxDoy) continue;
+          if (Math.random() < 0.15 && !sp.resident) continue;
 
-          const baseDate = new Date(year, 0, 1);
-          baseDate.setDate(doy);
-          const dateStr = formatDateISO(baseDate);
+          const numSightings = sp.resident
+            ? Math.floor(Math.random() * 12) + 4
+            : Math.floor(Math.random() * 6) + 2;
 
-          const loc = LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
-          subId++;
+          for (let s = 0; s < numSightings; s++) {
+            let doy;
+            if (sp.winter) {
+              if (startDoy > endDoy) {
+                doy = Math.random() < 0.5
+                  ? Math.floor(Math.random() * (365 - startDoy + 1)) + startDoy
+                  : Math.floor(Math.random() * endDoy) + 1;
+              } else {
+                doy = Math.floor(Math.random() * (endDoy - startDoy + 1)) + startDoy;
+              }
+            } else {
+              const adjStart = Math.max(1, startDoy - 7 + Math.floor(Math.random() * 7));
+              const adjEnd = Math.min(365, endDoy + Math.floor(Math.random() * 7));
+              doy = Math.floor(Math.random() * (adjEnd - adjStart + 1)) + adjStart;
+            }
 
-          records.push({
-            id: 'S' + subId + '::' + sp.common,
-            submissionId: 'S' + subId,
-            commonName: sp.common,
-            scientificName: sp.scientific,
-            taxonomicOrder: sp.order,
-            count: Math.floor(Math.random() * 8) + 1,
-            state: STATE,
-            county: loc.county,
-            locationId: loc.id,
-            location: loc.name,
-            latitude: loc.lat,
-            longitude: loc.lng,
-            date: dateStr,
-            time: `${String(6 + Math.floor(Math.random() * 6)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
-            year: year,
-            dayOfYear: doy,
-            protocol: Math.random() > 0.3 ? 'Traveling' : 'Stationary',
-            duration: 30 + Math.floor(Math.random() * 120),
-            allObs: Math.random() > 0.2,
-            breedingCode: '',
-            obsDetails: '',
-          });
+            if (doy > maxDoy) continue;
+
+            const baseDate = new Date(year, 0, 1);
+            baseDate.setDate(doy);
+            const dateStr = formatDateISO(baseDate);
+
+            const loc = LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
+            subId++;
+
+            records.push({
+              id: 'S' + subId + '::' + sp.common,
+              submissionId: 'S' + subId,
+              commonName: sp.common,
+              scientificName: sp.scientific,
+              taxonomicOrder: sp.order,
+              count: Math.floor(Math.random() * 8) + 1,
+              state: STATE,
+              county: loc.county,
+              locationId: loc.id,
+              location: loc.name,
+              latitude: loc.lat,
+              longitude: loc.lng,
+              date: dateStr,
+              time: `${String(6 + Math.floor(Math.random() * 6)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
+              year: year,
+              dayOfYear: doy,
+              protocol: Math.random() > 0.3 ? 'Traveling' : 'Stationary',
+              duration: 30 + Math.floor(Math.random() * 120),
+              allObs: Math.random() > 0.2,
+              breedingCode: '',
+              obsDetails: '',
+            });
+          }
         }
       }
-    }
 
-    DB.putObservations(records).then(() => {
-      hideLoading();
-      showToast(`Generated ${records.length.toLocaleString()} mock observations across ${YEARS.length} years!`, 'success');
-      initDashboard();
+      DOM.importProgressFill.style.width = '50%';
+      DOM.importStatus.textContent = `Storing ${records.length.toLocaleString()} mock records...`;
+      DOM.loadingText.textContent = 'Storing...';
+
+      DB.putObservations(records).then(() => {
+        DOM.importProgressFill.style.width = '100%';
+        DOM.importStatus.textContent = 'Mock data generated successfully.';
+        hideLoading();
+        showToast(`Generated ${records.length.toLocaleString()} mock observations across ${YEARS.length} years!`, 'success');
+        initDashboard();
+      }).catch(err => {
+        hideLoading();
+        showToast('Error storing mock data: ' + err.message, 'error');
+      });
     }).catch(err => {
       hideLoading();
-      showToast('Error storing mock data: ' + err.message, 'error');
+      showToast('Error clearing old database: ' + err.message, 'error');
     });
   }
 
@@ -613,19 +734,34 @@
         DOM.toggleTrueSpecies.checked = savedTrueSpecies;
       }
 
+      const savedUserExclusions = await DB.getSetting('userExclusions');
+      state.userExclusions = savedUserExclusions || [];
+
+      const savedDisabledSystem = await DB.getSetting('disabledSystemExclusions');
+      state.disabledSystemExclusions = savedDisabledSystem || [];
+
       const totalRecords = await DB.countObservations();
       DOM.statTotalRecords.textContent = totalRecords.toLocaleString();
       state.isDataLoaded = totalRecords > 0;
 
       if (state.isDataLoaded) {
-        DOM.emptyState.style.display = 'none';
-        DOM.gridWrapper.style.display = 'block';
-        DOM.statsBar.style.display = 'flex';
-        await refreshGrid();
+        await populateSettingsForms();
+      }
+
+      if (state.isDataLoaded) {
+        const latestDate = await DB.getLatestDate();
+        if (latestDate) {
+          const parsed = parseRobustDate(latestDate);
+          DOM.statDateAsOf.textContent = parsed ? formatDateLabel(parsed) : latestDate;
+        } else {
+          DOM.statDateAsOf.textContent = '—';
+        }
       } else {
-        DOM.emptyState.style.display = 'flex';
-        DOM.gridWrapper.style.display = 'none';
-        DOM.statsBar.style.display = 'none';
+        DOM.statDateAsOf.textContent = '—';
+      }
+      syncViewVisibility();
+      if (state.isDataLoaded) {
+        await refreshGrid();
       }
     } catch (err) {
       console.error('Dashboard init error:', err);
@@ -701,6 +837,12 @@
       renderGrid();
       updateStats();
       updateAlerts();
+
+      if (state.activeTab === 'tick') {
+        await renderTickExplorer();
+      } else if (state.activeTab === 'settings') {
+        await renderSettings();
+      }
     } catch (err) {
       console.error('Grid refresh error:', err);
       showToast('Error refreshing grid: ' + err.message, 'error');
@@ -720,6 +862,11 @@
 
     for (const obs of state.observations) {
       if (state.showTrueSpeciesOnly && !isTrueSpecies(obs.commonName, obs.scientificName)) {
+        continue;
+      }
+
+      // Filter out non-countable exotics/exclusions
+      if (isNonCountable(obs.commonName, obs.state, obs.county)) {
         continue;
       }
 
@@ -1090,6 +1237,1226 @@
   }
 
   /* -----------------------------------------------------------------------
+     13.5. Tick Explorer Engine
+     ----------------------------------------------------------------------- */
+
+  function syncViewVisibility() {
+    if (!state.isDataLoaded) {
+      DOM.emptyState.style.display = 'flex';
+      DOM.gridWrapper.style.display = 'none';
+      DOM.statsBar.style.display = 'none';
+      DOM.tickExplorerWrapper.style.display = 'none';
+      DOM.settingsWrapper.style.display = 'none';
+      DOM.tabYoY.style.display = 'none';
+      DOM.tabTick.style.display = 'none';
+      DOM.tabSettings.style.display = 'none';
+      return;
+    }
+
+    DOM.emptyState.style.display = 'none';
+    DOM.tabYoY.style.display = 'flex';
+    DOM.tabTick.style.display = 'flex';
+    DOM.tabSettings.style.display = 'flex';
+
+    if (state.activeTab === 'yoy') {
+      DOM.gridWrapper.style.display = 'block';
+      DOM.statsBar.style.display = 'flex';
+      DOM.tickExplorerWrapper.style.display = 'none';
+      DOM.settingsWrapper.style.display = 'none';
+      DOM.tabYoY.classList.add('is-active');
+      DOM.tabTick.classList.remove('is-active');
+      DOM.tabSettings.classList.remove('is-active');
+    } else if (state.activeTab === 'tick') {
+      DOM.gridWrapper.style.display = 'none';
+      DOM.statsBar.style.display = 'none';
+      DOM.tickExplorerWrapper.style.display = 'flex';
+      DOM.settingsWrapper.style.display = 'none';
+      DOM.tabYoY.classList.remove('is-active');
+      DOM.tabTick.classList.add('is-active');
+      DOM.tabSettings.classList.remove('is-active');
+    } else if (state.activeTab === 'settings') {
+      DOM.gridWrapper.style.display = 'none';
+      DOM.statsBar.style.display = 'none';
+      DOM.tickExplorerWrapper.style.display = 'none';
+      DOM.settingsWrapper.style.display = 'flex';
+      DOM.tabYoY.classList.remove('is-active');
+      DOM.tabTick.classList.remove('is-active');
+      DOM.tabSettings.classList.add('is-active');
+    }
+  }
+
+  async function switchTab(tab) {
+    if (state.activeTab === tab) return;
+    state.activeTab = tab;
+    syncViewVisibility();
+
+    if (state.activeTab === 'tick') {
+      await renderTickExplorer();
+    } else if (state.activeTab === 'settings') {
+      await renderSettings();
+    }
+  }
+
+  function computeTickMilestones() {
+    const milestonesMap = new Map(); // "state::county::commonName" -> earliest observation
+    const countyHotspots = new Map(); // "state::county" -> [{lat, lng}]
+
+    for (const obs of state.observations) {
+      if (!obs.state || !obs.county || !obs.commonName) continue;
+
+      // Filter non-true species if that toggle is active
+      if (state.showTrueSpeciesOnly && !isTrueSpecies(obs.commonName, obs.scientificName)) {
+        continue;
+      }
+
+      // Filter out non-countable exotics/exclusions
+      if (isNonCountable(obs.commonName, obs.state, obs.county)) {
+        continue;
+      }
+
+      let name = obs.commonName;
+      if (state.aggregateSubspecies) {
+        name = stripSubspecies(name);
+      }
+
+      const key = `${obs.state}::${obs.county}::${name}`;
+      const existing = milestonesMap.get(key);
+
+      if (!existing || obs.date < existing.date) {
+        milestonesMap.set(key, {
+          date: obs.date,
+          commonName: name,
+          scientificName: obs.scientificName,
+          state: obs.state,
+          county: obs.county,
+          lat: obs.latitude,
+          lng: obs.longitude
+        });
+      }
+
+      // Collect GPS coordinates for centroid calculation
+      if (obs.latitude !== 0 && obs.longitude !== 0) {
+        const cKey = `${obs.state}::${obs.county}`;
+        if (!countyHotspots.has(cKey)) {
+          countyHotspots.set(cKey, []);
+        }
+        countyHotspots.get(cKey).push({ lat: obs.latitude, lng: obs.longitude });
+      }
+    }
+
+    // Sort milestones chronologically
+    state.tickMilestones = Array.from(milestonesMap.values());
+    state.tickMilestones.sort((a, b) => a.date.localeCompare(b.date));
+
+    // Calculate county centroids
+    const centroids = new Map();
+    for (const [cKey, coords] of countyHotspots) {
+      const sum = coords.reduce((acc, c) => ({ lat: acc.lat + c.lat, lng: acc.lng + c.lng }), { lat: 0, lng: 0 });
+      centroids.set(cKey, {
+        lat: sum.lat / coords.length,
+        lng: sum.lng / coords.length
+      });
+    }
+
+    return centroids;
+  }
+
+  async function renderTickExplorer() {
+    showLoading('Rendering Tick Explorer...');
+
+    try {
+      const centroids = computeTickMilestones();
+
+      // Aggregate list sizes by subregions
+      const subregions = new Map(); // "state::county" -> { county, state, lat, lng, speciesCount, speciesSet }
+
+      for (const m of state.tickMilestones) {
+        const cKey = `${m.state}::${m.county}`;
+        if (!subregions.has(cKey)) {
+          const centroid = centroids.get(cKey) || { lat: m.lat, lng: m.lng };
+          subregions.set(cKey, {
+            county: m.county,
+            state: m.state,
+            lat: centroid.lat,
+            lng: centroid.lng,
+            speciesCount: 0,
+            speciesSet: new Set()
+          });
+        }
+
+        const sub = subregions.get(cKey);
+        if (!sub.speciesSet.has(m.commonName)) {
+          sub.speciesSet.add(m.commonName);
+          sub.speciesCount++;
+        }
+      }
+
+      // Find top county
+      let topCountyName = 'None';
+      let topCountyCount = 0;
+      let maxSpeciesCount = 0;
+      
+      for (const [_, sub] of subregions) {
+        if (sub.speciesCount > maxSpeciesCount) {
+          maxSpeciesCount = sub.speciesCount;
+          topCountyName = sub.county;
+          topCountyCount = sub.speciesCount;
+        }
+      }
+
+      // Update Summary Cards
+      DOM.tickStatTotal.textContent = state.tickMilestones.length.toLocaleString();
+      DOM.tickStatCounties.textContent = subregions.size.toLocaleString();
+      DOM.tickStatTop.textContent = topCountyName;
+      DOM.tickStatTopCount.textContent = `${topCountyCount.toLocaleString()} species`;
+
+      // Render components
+      renderSubregionsList(subregions);
+      renderTickMap(subregions, maxSpeciesCount);
+      renderTickChart(state.tickMilestones);
+      renderTimeframeAdditions();
+
+      // Update analyzer summary badge
+      const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+      if (isTimeframeActive && DOM.analyzerSummary) {
+        const addedTotal = state.tickMilestones.filter(m => {
+          if (state.tickDateStart && m.date < state.tickDateStart) return false;
+          if (state.tickDateEnd && m.date > state.tickDateEnd) return false;
+          return true;
+        }).length;
+        DOM.analyzerSummary.textContent = `+${addedTotal} Ticks Gained`;
+        DOM.analyzerSummary.style.display = 'inline-block';
+      } else if (DOM.analyzerSummary) {
+        DOM.analyzerSummary.style.display = 'none';
+      }
+
+    } catch (err) {
+      console.error('Tick Explorer render error:', err);
+      showToast('Error rendering Tick Explorer: ' + err.message, 'error');
+    }
+
+    hideLoading();
+  }
+
+  function renderSubregionsList(subregionsMap) {
+    if (!subregionsMap) {
+      const centroids = computeTickMilestones();
+      subregionsMap = new Map();
+      for (const m of state.tickMilestones) {
+        const cKey = `${m.state}::${m.county}`;
+        if (!subregionsMap.has(cKey)) {
+          const centroid = centroids.get(cKey) || { lat: m.lat, lng: m.lng };
+          subregionsMap.set(cKey, {
+            county: m.county,
+            state: m.state,
+            lat: centroid.lat,
+            lng: centroid.lng,
+            speciesCount: 0,
+            speciesSet: new Set()
+          });
+        }
+        const sub = subregionsMap.get(cKey);
+        if (!sub.speciesSet.has(m.commonName)) {
+          sub.speciesSet.add(m.commonName);
+          sub.speciesCount++;
+        }
+      }
+    }
+
+    // Compute timeframe additions count for each subregion
+    const addedCounts = new Map();
+    // Compute "end total" = species count at end of timeframe (ticks on or before end date)
+    const endTotalCounts = new Map();
+    // Compute "start total" = species count at start of timeframe (ticks strictly before start date)
+    const startTotalCounts = new Map();
+    for (const m of state.tickMilestones) {
+      const cKey = `${m.state}::${m.county}`;
+      if (!addedCounts.has(cKey)) {
+        addedCounts.set(cKey, 0);
+      }
+      if (!endTotalCounts.has(cKey)) {
+        endTotalCounts.set(cKey, new Set());
+      }
+      if (!startTotalCounts.has(cKey)) {
+        startTotalCounts.set(cKey, new Set());
+      }
+      
+      let isWithin = true;
+      if (state.tickDateStart && m.date < state.tickDateStart) isWithin = false;
+      if (state.tickDateEnd && m.date > state.tickDateEnd) isWithin = false;
+      
+      if (isWithin) {
+        addedCounts.set(cKey, addedCounts.get(cKey) + 1);
+      }
+
+      // Count species on or before end date
+      if (!state.tickDateEnd || m.date <= state.tickDateEnd) {
+        endTotalCounts.get(cKey).add(m.commonName);
+      }
+
+      // Count species strictly before start date
+      if (state.tickDateStart && m.date < state.tickDateStart) {
+        startTotalCounts.get(cKey).add(m.commonName);
+      }
+    }
+
+    DOM.subregionListBody.innerHTML = '';
+    const items = Array.from(subregionsMap.values());
+
+    let filtered = items;
+    if (state.tickSearchQuery) {
+      filtered = items.filter(
+        item => item.county.toLowerCase().includes(state.tickSearchQuery) ||
+                item.state.toLowerCase().includes(state.tickSearchQuery)
+      );
+    }
+
+    filtered.sort((a, b) => b.speciesCount - a.speciesCount);
+
+    const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+    const fragment = document.createDocumentFragment();
+    for (const item of filtered) {
+      const tr = document.createElement('tr');
+      if (state.selectedMapCounty === item.county) {
+        tr.classList.add('is-selected');
+      }
+
+      const tdCounty = document.createElement('td');
+      tdCounty.textContent = item.county;
+      tdCounty.style.fontWeight = '500';
+      tr.appendChild(tdCounty);
+
+      const tdState = document.createElement('td');
+      tdState.textContent = item.state;
+      tr.appendChild(tdState);
+
+      const tdTicks = document.createElement('td');
+      tdTicks.className = 'date-cell';
+      tdTicks.style.textAlign = 'right';
+      tdTicks.style.fontWeight = 'bold';
+      tdTicks.style.color = 'var(--color-accent)';
+      tdTicks.textContent = item.speciesCount.toLocaleString();
+      tr.appendChild(tdTicks);
+
+      const cKey = `${item.state}::${item.county}`;
+      const addedCount = addedCounts.get(cKey) || 0;
+      const endTotalSet = endTotalCounts.get(cKey);
+      const endTotal = endTotalSet ? endTotalSet.size : item.speciesCount;
+      const startTotalSet = startTotalCounts.get(cKey);
+      const startTotal = startTotalSet ? startTotalSet.size : 0;
+
+      // Timeframe Start column (ticks before start of timeframe)
+      const tdStartTotal = document.createElement('td');
+      tdStartTotal.className = 'date-cell';
+      tdStartTotal.style.textAlign = 'right';
+      tdStartTotal.style.fontWeight = 'bold';
+      if (isTimeframeActive) {
+        tdStartTotal.textContent = startTotal.toLocaleString();
+        tdStartTotal.style.color = '#60a5fa'; // Blue accent
+      } else {
+        tdStartTotal.textContent = '—';
+        tdStartTotal.style.color = 'var(--color-text-tertiary)';
+      }
+      tr.appendChild(tdStartTotal);
+
+      // Timeframe End column (ticks at end of timeframe)
+      const tdEndTotal = document.createElement('td');
+      tdEndTotal.className = 'date-cell';
+      tdEndTotal.style.textAlign = 'right';
+      tdEndTotal.style.fontWeight = 'bold';
+      if (isTimeframeActive) {
+        tdEndTotal.textContent = endTotal.toLocaleString();
+        tdEndTotal.style.color = '#a78bfa'; // Purple accent
+      } else {
+        tdEndTotal.textContent = '—';
+        tdEndTotal.style.color = 'var(--color-text-tertiary)';
+      }
+      tr.appendChild(tdEndTotal);
+
+      const tdAdded = document.createElement('td');
+      tdAdded.className = 'date-cell';
+      tdAdded.style.textAlign = 'right';
+      tdAdded.style.fontWeight = 'bold';
+      if (isTimeframeActive && addedCount > 0) {
+        tdAdded.textContent = `+${addedCount}`;
+        tdAdded.style.color = '#14b8a6'; // Teal accent
+      } else {
+        tdAdded.textContent = '—';
+        tdAdded.style.color = 'var(--color-text-tertiary)';
+      }
+      tr.appendChild(tdAdded);
+
+      tr.addEventListener('click', () => {
+        handleMapNodeClick(item.county);
+      });
+
+      fragment.appendChild(tr);
+    }
+
+    DOM.subregionListBody.appendChild(fragment);
+  }
+
+  const FIPS_TO_STATE = {
+    "01": "AL", "02": "AK", "04": "AZ", "05": "AR", "06": "CA",
+    "08": "CO", "09": "CT", "10": "DE", "12": "FL", "13": "GA",
+    "15": "HI", "16": "ID", "17": "IL", "18": "IN", "19": "IA",
+    "20": "KS", "21": "KY", "22": "LA", "23": "ME", "24": "MD",
+    "25": "MA", "26": "MI", "27": "MN", "28": "MS", "29": "MO",
+    "30": "MT", "31": "NE", "32": "NV", "33": "NH", "34": "NJ",
+    "35": "NM", "36": "NY", "37": "NC", "38": "ND", "39": "OH",
+    "40": "OK", "41": "OR", "42": "PA", "44": "RI", "45": "SC",
+    "46": "SD", "47": "TN", "48": "TX", "49": "UT", "50": "VT",
+    "51": "VA", "53": "WA", "54": "WV", "55": "WI", "56": "WY"
+  };
+
+  const STATE_TO_FIPS = {};
+  for (const [fips, code] of Object.entries(FIPS_TO_STATE)) {
+    STATE_TO_FIPS[code] = fips;
+  }
+
+  function cleanStateCode(code) {
+    if (!code) return '';
+    return code.includes('-') ? code.split('-')[1] : code;
+  }
+
+  function getPolygonCentroid(feature) {
+    const geom = feature.geometry;
+    if (!geom) return null;
+    let sumX = 0, sumY = 0, count = 0;
+    
+    function processRing(ring) {
+      for (const pt of ring) {
+        sumX += pt[0];
+        sumY += pt[1];
+        count++;
+      }
+    }
+    
+    if (geom.type === 'Polygon') {
+      processRing(geom.coordinates[0]);
+    } else if (geom.type === 'MultiPolygon') {
+      let maxLen = 0, bestRing = null;
+      for (const poly of geom.coordinates) {
+        if (poly[0] && poly[0].length > maxLen) {
+          maxLen = poly[0].length;
+          bestRing = poly[0];
+        }
+      }
+      if (bestRing) processRing(bestRing);
+    }
+    
+    return count > 0 ? [sumX / count, sumY / count] : null;
+  }
+
+  function getFeaturePath(feature, minX, maxX, minY, maxY, scale, offsetX, offsetY, isPreProjected) {
+    const geom = feature.geometry;
+    if (!geom) return '';
+
+    function projectPoint(pt) {
+      const ptX = pt[0];
+      const ptY = pt[1];
+      let x, y;
+      if (isPreProjected) {
+        x = offsetX + (ptX - minX) * scale;
+        y = offsetY + (ptY - minY) * scale;
+      } else {
+        x = offsetX + (ptX - minX) * scale;
+        y = offsetY + (maxY - ptY) * scale;
+      }
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }
+
+    function getPolygonPath(polyCoords) {
+      let path = '';
+      for (const ring of polyCoords) {
+        if (ring.length === 0) continue;
+        let ringPath = 'M' + projectPoint(ring[0]);
+        for (let i = 1; i < ring.length; i++) {
+          ringPath += 'L' + projectPoint(ring[i]);
+        }
+        ringPath += 'Z';
+        path += ' ' + ringPath;
+      }
+      return path.trim();
+    }
+
+    if (geom.type === 'Polygon') {
+      return getPolygonPath(geom.coordinates);
+    } else if (geom.type === 'MultiPolygon') {
+      return geom.coordinates.map(getPolygonPath).join(' ');
+    }
+    return '';
+  }
+
+  function renderVectorMap(features, keyField, subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, isPreProjected, endTotalCounts) {
+    DOM.mapNodesLayer.innerHTML = '';
+    DOM.mapEdgesLayer.innerHTML = '';
+    DOM.mapLabelsLayer.innerHTML = '';
+
+    if (features.length === 0) return;
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+
+    function updateBounds(x, y) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+
+    for (const feature of features) {
+      const geom = feature.geometry;
+      if (!geom) continue;
+      if (geom.type === 'Polygon') {
+        for (const ring of geom.coordinates) {
+          for (const pt of ring) {
+            updateBounds(pt[0], pt[1]);
+          }
+        }
+      } else if (geom.type === 'MultiPolygon') {
+        for (const poly of geom.coordinates) {
+          for (const ring of poly) {
+            for (const pt of ring) {
+              updateBounds(pt[0], pt[1]);
+            }
+          }
+        }
+      }
+    }
+
+    const w = maxX - minX;
+    const h = maxY - minY;
+    if (w === 0 || h === 0) return;
+
+    const width = 500;
+    const height = 400;
+    const padding = 20;
+
+    const scale = Math.min((width - 2 * padding) / w, (height - 2 * padding) / h);
+    const offsetX = (width - w * scale) / 2;
+    const offsetY = (height - h * scale) / 2;
+
+    // Update legend values
+    if (DOM.mapLegendMin && DOM.mapLegendMax) {
+      DOM.mapLegendMin.textContent = '0';
+      DOM.mapLegendMax.textContent = activeMax > 0 ? activeMax.toString() : 'Max';
+    }
+
+    const fragmentPaths = document.createDocumentFragment();
+    const fragmentLabels = document.createDocumentFragment();
+
+    for (const feature of features) {
+      const pathStr = getFeaturePath(feature, minX, maxX, minY, maxY, scale, offsetX, offsetY, isPreProjected);
+      if (!pathStr) continue;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', pathStr);
+      path.setAttribute('stroke-linejoin', 'round');
+
+      let name = feature.properties.name || '';
+      let isSelected = false;
+      let totalCount = 0;
+      let addedCount = 0;
+      let stateCode = '';
+      let lookupKey = '';
+
+      if (keyField === 'state') {
+        const fips = feature.id;
+        const code = FIPS_TO_STATE[fips] || '';
+        stateCode = code ? `US-${code}` : '';
+        lookupKey = stateCode;
+        
+        for (const [key, sub] of subregionsMap) {
+          if (key === stateCode || key.endsWith(code)) {
+            totalCount = sub.speciesCount;
+            addedCount = addedCounts.get(key) || 0;
+            break;
+          }
+        }
+      } else {
+        const sCode = state.filterState || 'US-WI';
+        lookupKey = `${sCode}::${name}`;
+        const sub = subregionsMap.get(lookupKey);
+        if (sub) {
+          totalCount = sub.speciesCount;
+        }
+        addedCount = addedCounts.get(lookupKey) || 0;
+        isSelected = (state.selectedMapCounty === name);
+      }
+
+      // Determine active value based on colorMode
+      const activeValue = colorMode === 'added' ? addedCount : totalCount;
+
+      // Heatmap coloring: Standard yellow-to-red eBird scale
+      let fill = 'rgba(255, 255, 255, 0.03)';
+      let stroke = 'rgba(255, 255, 255, 0.08)';
+      let strokeWidth = '1px';
+
+      if (activeValue > 0) {
+        const ratio = activeMax > 0 ? activeValue / activeMax : 0;
+        const hue = 55 - 55 * ratio;
+        const saturation = 100;
+        const lightness = 65 - 17 * ratio;
+        fill = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+        stroke = 'var(--color-accent)';
+        strokeWidth = '1.2px';
+      }
+
+      if (isSelected) {
+        path.setAttribute('class', 'county-node-outer is-selected');
+        stroke = 'var(--color-accent)';
+        strokeWidth = '2px';
+      } else {
+        path.setAttribute('class', 'county-path-shape');
+      }
+
+      path.setAttribute('fill', fill);
+      path.setAttribute('stroke', stroke);
+      path.setAttribute('stroke-width', strokeWidth);
+      path.style.transition = 'fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease';
+
+      path.addEventListener('mouseenter', (e) => {
+        path.setAttribute('stroke-width', '2.5px');
+        path.setAttribute('stroke', 'var(--color-accent)');
+        
+        const displayState = keyField === 'state' ? name : (state.filterState || 'Wisconsin');
+        const displayName = keyField === 'state' ? name : `${name} County`;
+        
+        showMapTooltip({ 
+          county: displayName, 
+          state: displayState, 
+          speciesCount: totalCount,
+          addedCount: addedCount,
+          isTimeframeActive: isTimeframeActive
+        }, e);
+      });
+
+      path.addEventListener('mouseleave', () => {
+        path.setAttribute('stroke-width', strokeWidth);
+        path.setAttribute('stroke', stroke);
+        hideMapTooltip();
+      });
+
+      path.addEventListener('mousemove', positionMapTooltip);
+      path.style.cursor = 'pointer';
+      
+      path.addEventListener('click', () => {
+        if (keyField === 'state') {
+          const code = FIPS_TO_STATE[feature.id] || '';
+          if (code) {
+            const fullCode = `US-${code}`;
+            DOM.filterState.value = fullCode;
+            DOM.filterState.dispatchEvent(new Event('change'));
+          }
+        } else {
+          handleMapNodeClick(name);
+        }
+      });
+
+      fragmentPaths.appendChild(path);
+
+      // Label text: endTotal and addition ticks
+      let labelText = '';
+      let endTotal = totalCount;
+      if (endTotalCounts) {
+        if (keyField === 'state') {
+          // Aggregate endTotal across all counties in this state
+          let stateEndTotal = 0;
+          const code = FIPS_TO_STATE[feature.id] || '';
+          for (const [key, set] of endTotalCounts) {
+            if (key.startsWith(`US-${code}::`) || key.startsWith(`${code}::`)) {
+              stateEndTotal += set.size;
+            }
+          }
+          if (stateEndTotal > 0) endTotal = stateEndTotal;
+        } else {
+          const endTotalSet = endTotalCounts.get(lookupKey);
+          if (endTotalSet) endTotal = endTotalSet.size;
+        }
+      }
+      if (activeValue > 0) {
+        if (colorMode === 'total') {
+          if (isTimeframeActive) {
+            labelText = endTotal.toString();
+            if (addedCount > 0) {
+              labelText += ` (+${addedCount})`;
+            }
+          } else {
+            labelText = totalCount.toString();
+          }
+        } else {
+          labelText = addedCount > 0 ? `+${addedCount}` : '';
+        }
+      }
+
+      if (labelText) {
+        const centroid = getPolygonCentroid(feature);
+        if (centroid) {
+          const ptX = centroid[0];
+          const ptY = centroid[1];
+          const x = offsetX + (ptX - minX) * scale;
+          const y = isPreProjected ? (offsetY + (ptY - minY) * scale) : (offsetY + (maxY - ptY) * scale);
+          
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.setAttribute('class', 'map-label');
+          text.setAttribute('x', x);
+          text.setAttribute('y', y + 3);
+          text.setAttribute('text-anchor', 'middle');
+          text.style.pointerEvents = 'none';
+          text.style.fontSize = '9px';
+          text.style.fontWeight = 'bold';
+          text.style.fill = '#fff';
+          text.style.textShadow = '0 1px 3px rgba(0,0,0,0.9)';
+          text.textContent = labelText;
+          fragmentLabels.appendChild(text);
+        }
+      }
+    }
+
+    DOM.mapNodesLayer.appendChild(fragmentPaths);
+    DOM.mapLabelsLayer.appendChild(fragmentLabels);
+  }
+
+  function renderCentroidFallback(subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, endTotalCounts) {
+    DOM.mapNodesLayer.innerHTML = '';
+    DOM.mapEdgesLayer.innerHTML = '';
+    DOM.mapLabelsLayer.innerHTML = '';
+
+    const nodes = Array.from(subregionsMap.values());
+    if (nodes.length === 0) return;
+
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+
+    for (const n of nodes) {
+      if (n.lat < minLat) minLat = n.lat;
+      if (n.lat > maxLat) maxLat = n.lat;
+      if (n.lng < minLng) minLng = n.lng;
+      if (n.lng > maxLng) maxLng = n.lng;
+    }
+
+    const latDiff = maxLat - minLat;
+    const lngDiff = maxLng - minLng;
+
+    const width = 500;
+    const height = 400;
+    const padding = 50;
+
+    function project(lat, lng) {
+      let x, y;
+      if (lngDiff === 0) {
+        x = width / 2;
+      } else {
+        x = padding + ((lng - minLng) / lngDiff) * (width - 2 * padding);
+      }
+      if (latDiff === 0) {
+        y = height / 2;
+      } else {
+        y = height - (padding + ((lat - minLat) / latDiff) * (height - 2 * padding));
+      }
+      return { x, y };
+    }
+
+    if (DOM.mapLegendMin && DOM.mapLegendMax) {
+      DOM.mapLegendMin.textContent = '0';
+      DOM.mapLegendMax.textContent = activeMax > 0 ? activeMax.toString() : 'Max';
+    }
+
+    const projectedNodes = nodes.map(n => {
+      const pt = project(n.lat, n.lng);
+      return {
+        ...n,
+        x: pt.x,
+        y: pt.y
+      };
+    });
+
+    const fragmentEdges = document.createDocumentFragment();
+    for (let i = 0; i < projectedNodes.length; i++) {
+      const nodeA = projectedNodes[i];
+      const neighbors = projectedNodes
+        .filter((_, idx) => idx !== i)
+        .map(nodeB => {
+          const dx = nodeB.x - nodeA.x;
+          const dy = nodeB.y - nodeA.y;
+          return { node: nodeB, dist: dx * dx + dy * dy };
+        })
+        .sort((a, b) => a.dist - b.dist)
+        .slice(0, 2);
+
+      for (const edge of neighbors) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', nodeA.x);
+        line.setAttribute('y1', nodeA.y);
+        line.setAttribute('x2', edge.node.x);
+        line.setAttribute('y2', edge.node.y);
+        line.setAttribute('stroke', 'var(--color-border-subtle)');
+        line.setAttribute('stroke-width', '1px');
+        line.setAttribute('stroke-dasharray', '2, 4');
+        fragmentEdges.appendChild(line);
+      }
+    }
+    DOM.mapEdgesLayer.appendChild(fragmentEdges);
+
+    const fragmentNodes = document.createDocumentFragment();
+    const fragmentLabels = document.createDocumentFragment();
+
+    for (const node of projectedNodes) {
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('class', 'county-node-outer' + (state.selectedMapCounty === node.county ? ' is-selected' : ''));
+      g.dataset.county = node.county;
+
+      const lookupKey = `${node.state}::${node.county}`;
+      const addedCount = addedCounts.get(lookupKey) || 0;
+      const activeValue = colorMode === 'added' ? addedCount : node.speciesCount;
+
+      const isTopCounty = activeMax > 0 && activeValue === activeMax;
+      if (isTopCounty) {
+        const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        ring.setAttribute('class', 'county-node-glow-ring');
+        ring.setAttribute('cx', node.x);
+        ring.setAttribute('cy', node.y);
+        ring.setAttribute('r', '15');
+        ring.setAttribute('fill', 'none');
+        ring.setAttribute('stroke', 'var(--color-accent)');
+        ring.setAttribute('stroke-width', '1px');
+        g.appendChild(ring);
+      }
+
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('class', 'county-node');
+      circle.setAttribute('cx', node.x);
+      circle.setAttribute('cy', node.y);
+      circle.setAttribute('r', '11');
+
+      let fill = 'rgba(255, 255, 255, 0.03)';
+      let stroke = 'rgba(255, 255, 255, 0.08)';
+
+      if (activeValue > 0) {
+        const ratio = activeMax > 0 ? activeValue / activeMax : 0;
+        const hue = 55 - 55 * ratio;
+        const saturation = 100;
+        const lightness = 65 - 17 * ratio;
+        fill = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+        stroke = 'var(--color-accent)';
+      }
+      circle.setAttribute('fill', fill);
+      circle.setAttribute('stroke', stroke);
+      circle.setAttribute('stroke-width', '1.5px');
+      g.appendChild(circle);
+
+      g.addEventListener('mouseenter', (e) => {
+        showMapTooltip({ 
+          county: `${node.county} County`, 
+          state: node.state, 
+          speciesCount: node.speciesCount,
+          addedCount: addedCount,
+          isTimeframeActive: isTimeframeActive
+        }, e);
+      });
+      g.addEventListener('mouseleave', hideMapTooltip);
+      g.addEventListener('mousemove', positionMapTooltip);
+      g.style.cursor = 'pointer';
+      g.addEventListener('click', () => handleMapNodeClick(node.county));
+
+      fragmentNodes.appendChild(g);
+
+      let labelText = '';
+      const endTotalSet = endTotalCounts ? endTotalCounts.get(lookupKey) : null;
+      const endTotal = endTotalSet ? endTotalSet.size : node.speciesCount;
+      if (activeValue > 0) {
+        if (colorMode === 'total') {
+          if (isTimeframeActive) {
+            labelText = endTotal.toString();
+            if (addedCount > 0) {
+              labelText += ` (+${addedCount})`;
+            }
+          } else {
+            labelText = node.speciesCount.toString();
+          }
+        } else {
+          labelText = addedCount > 0 ? `+${addedCount}` : '';
+        }
+      }
+
+      if (labelText) {
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('class', 'map-label');
+        text.setAttribute('x', node.x);
+        text.setAttribute('y', node.y + 3);
+        text.setAttribute('text-anchor', 'middle');
+        text.style.pointerEvents = 'none';
+        text.style.fontSize = '8px';
+        text.style.fontWeight = 'bold';
+        text.style.fill = '#fff';
+        text.style.textShadow = '0 1px 3px rgba(0,0,0,0.9)';
+        text.textContent = labelText;
+        fragmentLabels.appendChild(text);
+      }
+    }
+
+    DOM.mapNodesLayer.appendChild(fragmentNodes);
+    DOM.mapLabelsLayer.appendChild(fragmentLabels);
+  }
+
+  function renderTickMap(subregionsMap, maxSpeciesCount) {
+    const colorMode = DOM.mapColorMode ? DOM.mapColorMode.value : 'total';
+    const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+
+    // Compute timeframe additions count for all subregions
+    const addedCounts = new Map();
+    const endTotalCounts = new Map();
+    for (const m of state.tickMilestones) {
+      const cKey = `${m.state}::${m.county}`;
+      if (!addedCounts.has(cKey)) {
+        addedCounts.set(cKey, 0);
+      }
+      if (!endTotalCounts.has(cKey)) {
+        endTotalCounts.set(cKey, new Set());
+      }
+      
+      let isWithin = true;
+      if (state.tickDateStart && m.date < state.tickDateStart) isWithin = false;
+      if (state.tickDateEnd && m.date > state.tickDateEnd) isWithin = false;
+      
+      if (isWithin) {
+        addedCounts.set(cKey, addedCounts.get(cKey) + 1);
+      }
+
+      if (!state.tickDateEnd || m.date <= state.tickDateEnd) {
+        endTotalCounts.get(cKey).add(m.commonName);
+      }
+    }
+
+    // Calculate max values for both Total and Added
+    let maxTotal = 0;
+    let maxAdded = 0;
+    for (const [key, sub] of subregionsMap) {
+      if (sub.speciesCount > maxTotal) maxTotal = sub.speciesCount;
+      const added = addedCounts.get(key) || 0;
+      if (added > maxAdded) maxAdded = added;
+    }
+
+    const activeMax = colorMode === 'added' ? maxAdded : maxTotal;
+
+    if (typeof topojson !== 'undefined' && window.US_ATLAS) {
+      try {
+        const cleanedState = cleanStateCode(state.filterState);
+        
+        if (!cleanedState) {
+          const stateFeatures = topojson.feature(window.US_ATLAS, window.US_ATLAS.objects.states).features;
+          renderVectorMap(stateFeatures, 'state', subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, true, endTotalCounts);
+          return;
+        } else {
+          const fipsPrefix = STATE_TO_FIPS[cleanedState];
+          if (fipsPrefix) {
+            const countyFeatures = topojson.feature(window.US_ATLAS, window.US_ATLAS.objects.counties).features.filter(
+              f => f.id.startsWith(fipsPrefix)
+            );
+            
+            if (countyFeatures.length > 0) {
+              renderVectorMap(countyFeatures, 'county', subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, true, endTotalCounts);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error rendering vector boundary map:', err);
+      }
+    }
+    
+    renderCentroidFallback(subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, endTotalCounts);
+  }
+
+  function renderTickChart(milestones) {
+    if (state.tickChartInstance) {
+      state.tickChartInstance.destroy();
+      state.tickChartInstance = null;
+    }
+
+    if (typeof Chart === 'undefined') return;
+
+    const ctx = $('tick-chart').getContext('2d');
+    if (!ctx || milestones.length === 0) return;
+
+    const chartPoints = [];
+    let count = 0;
+
+    for (const m of milestones) {
+      count++;
+      const parts = m.date.split('-');
+      const date = new Date(parts[0], parts[1] - 1, parts[2]);
+      chartPoints.push({
+        x: date,
+        y: count
+      });
+    }
+
+    // Build datasets - main line always shown
+    const datasets = [{
+      label: 'Cumulative County Ticks',
+      data: chartPoints,
+      borderColor: 'rgb(20, 184, 166)',
+      backgroundColor: 'rgba(20, 184, 166, 0.05)',
+      borderWidth: 2.5,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      pointHoverBackgroundColor: '#fff',
+      pointHoverBorderColor: 'rgb(20, 184, 166)',
+      tension: 0.15,
+      fill: true
+    }];
+
+    // If timeframe is active, add highlighted segment dataset
+    const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+    if (isTimeframeActive) {
+      const highlightPoints = [];
+      let runningCount = 0;
+      for (const m of milestones) {
+        runningCount++;
+        const inRange = (!state.tickDateStart || m.date >= state.tickDateStart) &&
+                        (!state.tickDateEnd || m.date <= state.tickDateEnd);
+        if (inRange) {
+          const parts = m.date.split('-');
+          highlightPoints.push({
+            x: new Date(parts[0], parts[1] - 1, parts[2]),
+            y: runningCount
+          });
+        }
+      }
+      datasets.push({
+        label: 'Timeframe Window',
+        data: highlightPoints,
+        borderColor: 'rgba(239, 68, 68, 0.9)',
+        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+        borderWidth: 3,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: 'rgb(239, 68, 68)',
+        tension: 0.15,
+        fill: true
+      });
+    }
+
+    state.tickChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: { datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            titleColor: '#fff',
+            titleFont: { family: 'Inter', weight: 'bold' },
+            bodyColor: '#e2e8f0',
+            bodyFont: { family: 'Inter' },
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 1,
+            padding: 8,
+            cornerRadius: 6,
+            filter: (tooltipItem) => tooltipItem.datasetIndex === 0,
+            callbacks: {
+              title: (context) => {
+                const idx = context[0].dataIndex;
+                const m = milestones[idx];
+                const parts = m.date.split('-');
+                const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                return formatDateLabel(d);
+              },
+              label: (context) => {
+                const idx = context.dataIndex;
+                const m = milestones[idx];
+                return [
+                  `Total: ${context.parsed.y} ticks`,
+                  `New Sighting: ${m.commonName}`,
+                  `Subregion: ${m.county}, ${m.state}`
+                ];
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'year',
+              displayFormats: {
+                year: 'yyyy'
+              },
+              tooltipFormat: 'MMM d, yyyy'
+            },
+            grid: { display: false },
+            ticks: {
+              color: '#64748b',
+              font: { size: 9, family: 'JetBrains Mono' },
+              maxTicksLimit: 10
+            }
+          },
+          y: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: {
+              color: '#64748b',
+              font: { size: 9, family: 'JetBrains Mono' }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function renderTimeframeAdditions() {
+    DOM.timelineAdditionsList.innerHTML = '';
+    
+    const filtered = state.tickMilestones.filter(m => {
+      if (state.tickDateStart && m.date < state.tickDateStart) return false;
+      if (state.tickDateEnd && m.date > state.tickDateEnd) return false;
+      return true;
+    });
+
+    DOM.timelineAdditionsTitle.textContent = `⏱️ Timeframe Additions (${filtered.length.toLocaleString()})`;
+
+    if (filtered.length === 0) {
+      const empty = document.createElement('li');
+      empty.style.padding = 'var(--space-4)';
+      empty.style.textAlign = 'center';
+      empty.style.color = 'var(--color-text-tertiary)';
+      empty.style.fontSize = 'var(--font-size-xs)';
+      empty.textContent = 'No additions found in this date window.';
+      DOM.timelineAdditionsList.appendChild(empty);
+      return;
+    }
+
+    const sorted = [...filtered].reverse().slice(0, 50);
+
+    const fragment = document.createDocumentFragment();
+    for (const m of sorted) {
+      const li = document.createElement('li');
+      li.className = 'timeline-addition-item';
+
+      const marker = document.createElement('div');
+      marker.className = 'timeline-addition-item__marker';
+      li.appendChild(marker);
+
+      const content = document.createElement('div');
+      content.className = 'timeline-addition-item__content';
+
+      const title = document.createElement('span');
+      title.className = 'timeline-addition-item__title';
+      title.textContent = m.commonName;
+      content.appendChild(title);
+
+      const sub = document.createElement('span');
+      sub.className = 'timeline-addition-item__sub';
+      
+      const subregion = document.createElement('span');
+      subregion.textContent = `${m.county}, ${m.state}`;
+      sub.appendChild(subregion);
+
+      const dot = document.createElement('span');
+      dot.textContent = '•';
+      dot.style.color = 'var(--color-text-tertiary)';
+      sub.appendChild(dot);
+
+      const dateStr = document.createElement('span');
+      dateStr.className = 'timeline-addition-item__date';
+      const parts = m.date.split('-');
+      const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+      dateStr.textContent = formatDateLabel(dateObj);
+      sub.appendChild(dateStr);
+
+      content.appendChild(sub);
+      li.appendChild(content);
+      fragment.appendChild(li);
+    }
+
+    DOM.timelineAdditionsList.appendChild(fragment);
+  }
+
+  function handleMapNodeClick(countyName) {
+    if (state.selectedMapCounty === countyName) {
+      state.selectedMapCounty = '';
+    } else {
+      state.selectedMapCounty = countyName;
+    }
+
+    const groups = DOM.mapNodesLayer.querySelectorAll('g');
+    groups.forEach(g => {
+      if (g.dataset.county === countyName) {
+        g.classList.add('is-selected');
+      } else {
+        g.classList.remove('is-selected');
+      }
+    });
+
+    renderSubregionsList();
+
+    if (state.selectedMapCounty) {
+      const rows = DOM.subregionListBody.querySelectorAll('tr');
+      for (const tr of rows) {
+        const td = tr.querySelector('td');
+        if (td && td.textContent === state.selectedMapCounty) {
+          const container = document.querySelector('.subregion-list-wrapper');
+          if (container) {
+            const rowTop = tr.offsetTop;
+            const rowHeight = tr.offsetHeight;
+            const containerScrollTop = container.scrollTop;
+            const containerHeight = container.clientHeight;
+            const thead = container.querySelector('thead');
+            const headerHeight = thead ? thead.offsetHeight : 32;
+
+            if (rowTop < containerScrollTop + headerHeight) {
+              container.scrollTo({
+                top: rowTop - headerHeight,
+                behavior: 'smooth'
+              });
+            } else if (rowTop + rowHeight > containerScrollTop + containerHeight) {
+              container.scrollTo({
+                top: rowTop + rowHeight - containerHeight,
+                behavior: 'smooth'
+              });
+            }
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  function showMapTooltip(node, event) {
+    DOM.mapTooltip.style.display = 'block';
+    
+    let valueHTML = `<div class="map-tooltip__value">${node.speciesCount} Lifetime Ticks</div>`;
+    if (node.isTimeframeActive) {
+      valueHTML += `<div class="map-tooltip__value" style="color: #14b8a6; font-size: var(--font-size-xs); margin-top: 2px;">+${node.addedCount || 0} Timeframe Additions</div>`;
+    }
+    
+    DOM.mapTooltip.innerHTML = `
+      <div class="map-tooltip__title">${node.county}, ${node.state}</div>
+      ${valueHTML}
+      <div style="font-size: 10px; color: var(--color-text-tertiary); margin-top: 4px;">Click to filter/select</div>
+    `;
+    positionMapTooltip(event);
+  }
+
+  function hideMapTooltip() {
+    DOM.mapTooltip.style.display = 'none';
+  }
+
+  function positionMapTooltip(event) {
+    const mapContainerRect = $('map-container').getBoundingClientRect();
+    const x = event.clientX - mapContainerRect.left;
+    const y = event.clientY - mapContainerRect.top;
+    
+    DOM.mapTooltip.style.left = `${x}px`;
+    DOM.mapTooltip.style.top = `${y}px`;
+  }
+
+  /* -----------------------------------------------------------------------
      14. Event Handlers
      ----------------------------------------------------------------------- */
 
@@ -1204,14 +2571,24 @@
       state.observations = [];
       state.speciesData = [];
       state.isDataLoaded = false;
-      DOM.emptyState.style.display = 'flex';
-      DOM.gridWrapper.style.display = 'none';
-      DOM.statsBar.style.display = 'none';
       DOM.alertsPanel.classList.remove('is-open');
       DOM.importProgress.style.display = 'none';
       DOM.importStatus.style.display = 'none';
       DOM.statTotalRecords.textContent = '0';
       DOM.statTotalSpecies.textContent = '0';
+      DOM.statDateAsOf.textContent = '—';
+      
+      // Clean up Chart.js
+      if (state.tickChartInstance) {
+        state.tickChartInstance.destroy();
+        state.tickChartInstance = null;
+      }
+      state.tickMilestones = [];
+      state.selectedMapCounty = '';
+      state.tickDateStart = '';
+      state.tickDateEnd = '';
+      
+      syncViewVisibility();
       showToast('All data cleared.', 'warning');
     } catch (err) {
       showToast('Clear error: ' + err.message, 'error');
@@ -1219,10 +2596,231 @@
   }
 
   /* -----------------------------------------------------------------------
+     13.7. Settings View Controller (Exclusions)
+     ----------------------------------------------------------------------- */
+
+  async function populateSettingsForms() {
+    if (!state.isDataLoaded) return;
+
+    try {
+      const allObs = await DB.getObservations();
+
+      // 1. Populate autocomplete datalist for species
+      const speciesSet = new Set();
+      for (const obs of allObs) {
+        if (state.showTrueSpeciesOnly && !isTrueSpecies(obs.commonName, obs.scientificName)) {
+          continue;
+        }
+        let name = obs.commonName;
+        if (state.aggregateSubspecies) {
+          name = stripSubspecies(name);
+        }
+        speciesSet.add(name);
+      }
+      
+      const sortedSpecies = [...speciesSet].sort();
+      DOM.datalistSpecies.innerHTML = '';
+      for (const sp of sortedSpecies) {
+        const opt = document.createElement('option');
+        opt.value = sp;
+        DOM.datalistSpecies.appendChild(opt);
+      }
+
+      // 2. Populate State selection dropdown
+      const states = [...new Set(state.regions.map(r => r.state))].filter(Boolean).sort();
+      DOM.exclusionState.innerHTML = '<option value="">Select State</option>';
+      for (const s of states) {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        DOM.exclusionState.appendChild(opt);
+      }
+
+      // Clear county dropdown on load
+      DOM.exclusionCounty.innerHTML = '<option value="">All Counties</option>';
+    } catch (err) {
+      console.error('Error populating settings autocomplete:', err);
+    }
+  }
+
+  async function renderSettings() {
+    // 1. Render custom user exclusions
+    DOM.userExclusionsBody.innerHTML = '';
+    if (state.userExclusions.length === 0) {
+      DOM.userExclusionsBody.innerHTML = `
+        <tr>
+          <td colspan="3" style="text-align: center; color: var(--color-text-tertiary); font-style: italic; padding: var(--space-4);">
+            No custom exclusions defined.
+          </td>
+        </tr>`;
+    } else {
+      const fragment = document.createDocumentFragment();
+      for (const rule of state.userExclusions) {
+        const tr = document.createElement('tr');
+
+        const tdSpecies = document.createElement('td');
+        tdSpecies.style.fontWeight = '500';
+        tdSpecies.textContent = rule.commonName;
+        tr.appendChild(tdSpecies);
+
+        const tdRegion = document.createElement('td');
+        tdRegion.className = 'date-cell';
+        tdRegion.textContent = rule.county ? `${rule.county} Co., ${rule.state}` : `${rule.state}`;
+        tr.appendChild(tdRegion);
+
+        const tdAction = document.createElement('td');
+        tdAction.style.textAlign = 'right';
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn--danger btn--xs';
+        deleteBtn.innerHTML = '🗑️';
+        deleteBtn.title = 'Delete exclusion rule';
+        deleteBtn.addEventListener('click', () => handleDeleteExclusion(rule.id));
+        tdAction.appendChild(deleteBtn);
+        tr.appendChild(tdAction);
+
+        fragment.appendChild(tr);
+      }
+      DOM.userExclusionsBody.appendChild(fragment);
+    }
+
+    // 2. Render system default exclusions
+    DOM.systemExclusionsBody.innerHTML = '';
+    const fragmentSys = document.createDocumentFragment();
+    for (const rule of SYSTEM_EXCLUSIONS) {
+      const tr = document.createElement('tr');
+
+      const tdSpecies = document.createElement('td');
+      tdSpecies.style.fontWeight = '500';
+      tdSpecies.textContent = rule.commonName;
+      tr.appendChild(tdSpecies);
+
+      const tdRegion = document.createElement('td');
+      tdRegion.className = 'date-cell';
+      tdRegion.textContent = rule.county ? `${rule.county} Co., ${rule.state}` : `${rule.state}`;
+      tr.appendChild(tdRegion);
+
+      const tdStatus = document.createElement('td');
+      tdStatus.style.textAlign = 'right';
+      
+      const isEnabled = !state.disabledSystemExclusions.includes(rule.id);
+      
+      const label = document.createElement('label');
+      label.className = 'control-toggle';
+      label.title = isEnabled ? 'Exclusion Active (Sightings will not be counted)' : 'Exclusion Disabled (Sightings will be counted)';
+      
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = isEnabled;
+      input.addEventListener('change', (e) => handleToggleSystemExclusion(rule.id, e.target.checked));
+      
+      const track = document.createElement('span');
+      track.className = 'control-toggle__track';
+      
+      label.appendChild(input);
+      label.appendChild(track);
+      tdStatus.appendChild(label);
+      tr.appendChild(tdStatus);
+
+      fragmentSys.appendChild(tr);
+    }
+    DOM.systemExclusionsBody.appendChild(fragmentSys);
+  }
+
+  async function handleAddExclusion(e) {
+    if (e) e.preventDefault();
+
+    const species = DOM.exclusionSpecies.value.trim();
+    const stateCode = DOM.exclusionState.value;
+    const countyName = DOM.exclusionCounty.value;
+
+    if (!species || !stateCode) {
+      showToast('Please specify a species and a state.', 'error');
+      return;
+    }
+
+    // TYPO PROTECTION: Ensure species exists in loaded data
+    const datasetSpecies = new Set();
+    for (const obs of state.observations) {
+      datasetSpecies.add(obs.commonName.trim().toLowerCase());
+      datasetSpecies.add(stripSubspecies(obs.commonName).trim().toLowerCase());
+    }
+
+    if (!datasetSpecies.has(species.toLowerCase())) {
+      showToast(`Species "${species}" was not found in your observations database. Please check the spelling.`, 'warning');
+      return;
+    }
+
+    // DUPLICATE PROTECTION: Ensure rule is unique
+    const duplicate = state.userExclusions.find(rule => 
+      rule.commonName.toLowerCase() === species.toLowerCase() &&
+      rule.state.toLowerCase() === stateCode.toLowerCase() &&
+      rule.county.toLowerCase() === countyName.toLowerCase()
+    );
+
+    if (duplicate) {
+      showToast('This exclusion rule already exists.', 'warning');
+      return;
+    }
+
+    const newRule = {
+      id: 'user-' + Date.now(),
+      commonName: species,
+      state: stateCode,
+      county: countyName
+    };
+
+    state.userExclusions.push(newRule);
+    await DB.setSetting('userExclusions', state.userExclusions);
+    showToast(`Exclusion rule for ${species} created successfully!`, 'success');
+
+    // Reset species input
+    DOM.exclusionSpecies.value = '';
+    
+    // Render and refresh calculations
+    await renderSettings();
+    await refreshGrid();
+  }
+
+  async function handleDeleteExclusion(id) {
+    state.userExclusions = state.userExclusions.filter(rule => rule.id !== id);
+    await DB.setSetting('userExclusions', state.userExclusions);
+    showToast('Exclusion rule deleted.', 'info');
+
+    await renderSettings();
+    await refreshGrid();
+  }
+
+  async function handleToggleSystemExclusion(id, enabled) {
+    if (enabled) {
+      // Enabling exclusion means removing from disabled list
+      state.disabledSystemExclusions = state.disabledSystemExclusions.filter(sysId => sysId !== id);
+      showToast('System exclusion activated (Sightings will not be counted).', 'info');
+    } else {
+      // Disabling exclusion means adding to disabled list
+      if (!state.disabledSystemExclusions.includes(id)) {
+        state.disabledSystemExclusions.push(id);
+      }
+      showToast('System exclusion deactivated (Sightings will be counted).', 'success');
+    }
+    await DB.setSetting('disabledSystemExclusions', state.disabledSystemExclusions);
+
+    await renderSettings();
+    await refreshGrid();
+  }
+
+  /* -----------------------------------------------------------------------
      15. Event Binding
      ----------------------------------------------------------------------- */
 
   function bindEvents() {
+    // Prevent default drag & drop behaviors on the entire window
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    }, false);
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+    }, false);
+
     // File import
     DOM.inputFile.addEventListener('change', (e) => handleFileImport(e.target.files[0]));
     DOM.inputFileDrop.addEventListener('change', (e) => handleFileImport(e.target.files[0]));
@@ -1331,6 +2929,194 @@
         DOM.btnToggleAlerts.textContent = 'Hide';
       }
     });
+
+    // Tab Navigation
+    DOM.tabYoY.addEventListener('click', () => switchTab('yoy'));
+    DOM.tabTick.addEventListener('click', () => switchTab('tick'));
+    DOM.tabSettings.addEventListener('click', () => switchTab('settings'));
+
+    // Tick Date range analyzer
+    DOM.tickDateStart.addEventListener('change', (e) => {
+      state.tickDateStart = e.target.value;
+      clearQuickPickActive();
+      renderTickExplorer();
+    });
+    DOM.tickDateEnd.addEventListener('change', (e) => {
+      state.tickDateEnd = e.target.value;
+      clearQuickPickActive();
+      renderTickExplorer();
+    });
+    DOM.btnClearDateFilter.addEventListener('click', () => {
+      state.tickDateStart = '';
+      state.tickDateEnd = '';
+      DOM.tickDateStart.value = '';
+      DOM.tickDateEnd.value = '';
+      clearQuickPickActive();
+      renderTickExplorer();
+    });
+
+    // Map display mode switch
+    DOM.mapColorMode.addEventListener('change', () => {
+      renderTickExplorer();
+    });
+
+    // Subregions search filter
+    DOM.tickSearchSubregions.addEventListener('input', () => {
+      state.tickSearchQuery = DOM.tickSearchSubregions.value.trim().toLowerCase();
+      renderSubregionsList();
+    });
+
+    // Quick-pick date presets
+    document.querySelectorAll('.quick-pick-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const preset = btn.dataset.preset;
+        const today = new Date();
+        let start, end;
+
+        switch (preset) {
+          case 'this-year':
+            start = new Date(today.getFullYear(), 0, 1);
+            end = today;
+            break;
+          case 'this-month':
+            start = new Date(today.getFullYear(), today.getMonth(), 1);
+            end = today;
+            break;
+          case 'last-year':
+            start = new Date(today.getFullYear() - 1, 0, 1);
+            end = new Date(today.getFullYear() - 1, 11, 31);
+            break;
+          case 'last-7':
+            start = new Date(today.getTime() - 7 * 86400000);
+            end = today;
+            break;
+          case 'last-30':
+            start = new Date(today.getTime() - 30 * 86400000);
+            end = today;
+            break;
+          case 'last-90':
+            start = new Date(today.getTime() - 90 * 86400000);
+            end = today;
+            break;
+          default:
+            return;
+        }
+
+        state.tickDateStart = formatDateISO(start);
+        state.tickDateEnd = formatDateISO(end);
+        DOM.tickDateStart.value = state.tickDateStart;
+        DOM.tickDateEnd.value = state.tickDateEnd;
+
+        // Highlight active quick pick
+        document.querySelectorAll('.quick-pick-btn').forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+
+        renderTickExplorer();
+      });
+    });
+
+    // Download map as PNG
+    if (DOM.btnDownloadMap) {
+      DOM.btnDownloadMap.addEventListener('click', () => {
+        const svgEl = DOM.tickSvgMap;
+        if (!svgEl) return;
+
+        const svgData = new XMLSerializer().serializeToString(svgEl);
+        const canvas = document.createElement('canvas');
+        canvas.width = 1000;
+        canvas.height = 800;
+        const ctx2 = canvas.getContext('2d');
+
+        // Draw dark background
+        ctx2.fillStyle = '#0f1729';
+        ctx2.fillRect(0, 0, canvas.width, canvas.height);
+
+        const img = new Image();
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+
+        img.onload = () => {
+          ctx2.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+
+          const link = document.createElement('a');
+          link.download = 'birding-tracker-map.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          showToast('Map image downloaded!', 'success');
+        };
+        img.src = url;
+      });
+    }
+
+    // Download table as CSV
+    if (DOM.btnDownloadCsv) {
+      DOM.btnDownloadCsv.addEventListener('click', () => {
+        const rows = DOM.subregionListBody.querySelectorAll('tr');
+        if (rows.length === 0) {
+          showToast('No data to export.', 'warning');
+          return;
+        }
+
+        const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+        let headers = ['County', 'State', 'Total Ticks'];
+        if (isTimeframeActive) {
+          headers.push('Timeframe Start', 'Timeframe End', 'Added');
+        }
+
+        const csvRows = [headers.join(',')];
+        rows.forEach(tr => {
+          const cells = tr.querySelectorAll('td');
+          const rowData = [];
+          cells.forEach(td => {
+            let val = td.textContent.trim();
+            if (val.includes(',')) val = `"${val}"`;
+            rowData.push(val);
+          });
+          csvRows.push(rowData.join(','));
+        });
+
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8' });
+        const link = document.createElement('a');
+        link.download = 'birding-tracker-subregions.csv';
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        URL.revokeObjectURL(link.href);
+        showToast('CSV exported!', 'success');
+      });
+    }
+
+    // Custom Exclusion Form Submit
+    if (DOM.formAddExclusion) {
+      DOM.formAddExclusion.addEventListener('submit', handleAddExclusion);
+    }
+
+    // Dependent exclusion county dropdown populator
+    if (DOM.exclusionState) {
+      DOM.exclusionState.addEventListener('change', () => {
+        const selectedState = DOM.exclusionState.value;
+        if (!selectedState) {
+          DOM.exclusionCounty.innerHTML = '<option value="">All Counties</option>';
+          return;
+        }
+        const counties = [...new Set(state.regions
+          .filter(r => r.state === selectedState)
+          .map(r => r.county)
+        )].filter(Boolean).sort();
+
+        DOM.exclusionCounty.innerHTML = '<option value="">All Counties</option>';
+        for (const c of counties) {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          DOM.exclusionCounty.appendChild(opt);
+        }
+      });
+    }
+  }
+
+  function clearQuickPickActive() {
+    document.querySelectorAll('.quick-pick-btn').forEach(b => b.classList.remove('is-active'));
   }
 
   /* -----------------------------------------------------------------------
@@ -1344,6 +3130,17 @@
     bindEvents();
     state.aggregateSubspecies = DOM.toggleAggregate.checked;
     state.showTrueSpeciesOnly = DOM.toggleTrueSpecies.checked;
+
+    // Default timeframe to "This Year"
+    const today = new Date();
+    const yearStart = new Date(today.getFullYear(), 0, 1);
+    state.tickDateStart = formatDateISO(yearStart);
+    state.tickDateEnd = formatDateISO(today);
+    DOM.tickDateStart.value = state.tickDateStart;
+    DOM.tickDateEnd.value = state.tickDateEnd;
+    const thisYearBtn = document.querySelector('.quick-pick-btn[data-preset="this-year"]');
+    if (thisYearBtn) thisYearBtn.classList.add('is-active');
+
     initDashboard();
   }
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Local client-side eBird data tracker with year-over-year species analysis, target scouting alerts, and interactive time travel controls." />
-  <title>eBird YoY Species Tracker</title>
+  <title>Birding Tracker</title>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -25,8 +25,13 @@
     <header class="app-header">
       <div class="app-header__brand">
         <span class="app-header__logo">🐦</span>
-        <h1 class="app-header__title">eBird YoY Tracker</h1>
+        <h1 class="app-header__title">Birding Tracker</h1>
       </div>
+      <nav class="app-header__nav">
+        <button id="tab-yoy" class="header-tab is-active" title="Year-over-Year Species Grid">📊 YoY Tracker</button>
+        <button id="tab-tick" class="header-tab" title="Subregion Tick Explorer & Analytics">🗺️ Tick Explorer</button>
+        <button id="tab-settings" class="header-tab" title="Manage Exotics & Exclusions Settings">⚙️ Settings</button>
+      </nav>
       <div class="app-header__actions">
         <button id="btn-export-state" class="btn btn--secondary btn--sm" title="Export Dashboard State">
           📤 Export State
@@ -52,7 +57,7 @@
           📁 Load eBird File
           <input type="file" id="input-file" class="file-input-hidden" accept=".csv,.zip" />
         </label>
-        <button id="btn-load-mock" class="btn btn--secondary" style="width: 100%;">
+        <button id="btn-load-mock" class="btn btn--secondary" style="width: 100%;" title="Generate synthetic mock eBird observation dataset for local offline testing">
           🧪 Generate Mock Data
         </button>
       </div>
@@ -122,6 +127,7 @@
         <div style="display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--font-size-xs); color: var(--color-text-tertiary);">
           <span>Records: <strong id="stat-total-records" style="color: var(--color-text-primary);">0</strong></span>
           <span>Species: <strong id="stat-total-species" style="color: var(--color-text-primary);">0</strong></span>
+          <span>As of: <strong id="stat-date-as-of" style="color: var(--color-text-primary);">—</strong></span>
         </div>
       </div>
     </aside>
@@ -168,7 +174,7 @@
       <!-- Empty State (shown when no data loaded) -->
       <div class="empty-state" id="empty-state">
         <div class="empty-state__icon">🦉</div>
-        <h2 class="empty-state__title">Welcome to eBird YoY Tracker</h2>
+        <h2 class="empty-state__title">Welcome to Birding Tracker</h2>
         <p class="empty-state__desc">
           Load your personal eBird data export to visualize year-over-year species tracking with
           predictive scouting alerts. Your data never leaves your browser.
@@ -181,7 +187,7 @@
             <input type="file" id="input-file-drop" class="file-input-hidden" accept=".csv,.zip" />
           </label>
           <div class="or-divider">or</div>
-          <button id="btn-load-mock-main" class="btn btn--secondary">
+          <button id="btn-load-mock-main" class="btn btn--secondary" title="Generate synthetic mock eBird observation dataset for local offline testing">
             🧪 Quick Start with Mock Data
           </button>
         </div>
@@ -205,6 +211,239 @@
         </table>
       </div>
 
+      <!-- Tick Explorer View (hidden by default) -->
+      <div class="tick-explorer-wrapper" id="tick-explorer-wrapper" style="display: none;">
+        <!-- Top Stats Cards -->
+        <div class="tick-stats-grid">
+          <div class="tick-card">
+            <span class="tick-card__label">🗺️ Total County Ticks</span>
+            <span class="tick-card__value" id="tick-stat-total">0</span>
+            <span class="tick-card__sub" id="tick-stat-total-desc">Across all subregions</span>
+          </div>
+          <div class="tick-card">
+            <span class="tick-card__label">📍 Counties Visited</span>
+            <span class="tick-card__value" id="tick-stat-counties">0</span>
+            <span class="tick-card__sub" id="tick-stat-counties-desc">Unique counties logged</span>
+          </div>
+          <div class="tick-card">
+            <span class="tick-card__label">🏆 Top County</span>
+            <span class="tick-card__value" id="tick-stat-top">None</span>
+            <span class="tick-card__sub" id="tick-stat-top-count">0 species</span>
+          </div>
+        </div>
+
+        <!-- Date Range Sighting Analyzer -->
+        <div class="tick-analyzer-bar">
+          <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: 2px;">
+            <div class="tick-analyzer-bar__title">📅 Sighting Timeframe Analyzer</div>
+            <span id="tick-analyzer-summary" style="display: none; font-size: 11px; padding: 4px 8px; font-weight: bold; background: rgba(239, 68, 68, 0.15); color: rgb(239, 68, 68); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);">+0 Ticks Gained</span>
+          </div>
+          <div class="tick-analyzer-bar__controls">
+            <label class="analyzer-date-label">
+              Start Date
+              <input type="date" id="tick-date-start" class="control-date control-date--sm" />
+            </label>
+            <label class="analyzer-date-label">
+              End Date
+              <input type="date" id="tick-date-end" class="control-date control-date--sm" />
+            </label>
+            <div class="analyzer-date-label">
+              Quick Picks
+              <div class="quick-pick-row">
+                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="this-year">This Year</button>
+                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="this-month">This Month</button>
+                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-year">Last Year</button>
+                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-7">Last 7 Days</button>
+                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-30">Last 30 Days</button>
+                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-90">Last 90 Days</button>
+              </div>
+            </div>
+            <label class="analyzer-date-label">
+              Map Color Mode
+              <select id="map-color-mode" class="control-select control-select--sm" style="height: 32px; min-width: 170px; font-size: var(--font-size-xs); padding: 4px 8px;">
+                <option value="total">📊 Total Lifetime Ticks</option>
+                <option value="added">⏱️ Timeframe Additions</option>
+              </select>
+            </label>
+            <button id="btn-clear-date-filter" class="btn btn--secondary btn--sm" style="margin-top: auto; padding: 6px 12px; height: 32px;">
+              🔄 Reset Window
+            </button>
+          </div>
+        </div>
+
+        <!-- Dashboard Body Layout -->
+        <div class="tick-dashboard-body">
+          <!-- Left Column: Map & Chart -->
+          <div class="tick-column tick-column--left">
+            <div class="tick-card-panel">
+              <div class="tick-card-panel__title" style="display:flex;align-items:center;justify-content:space-between;">
+                <span>🗺️ Geographic Subregion Heatmap</span>
+                <button id="btn-download-map" class="btn btn--ghost btn--xs" title="Download map as PNG image">📥 Save Map</button>
+              </div>
+              <div class="map-container" id="map-container">
+                <!-- SVG map will be rendered dynamically here -->
+                <svg id="tick-svg-map" class="tick-svg-map" viewBox="0 0 500 400">
+                  <defs>
+                    <radialGradient id="node-glow" cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.4"></stop>
+                      <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0"></stop>
+                    </radialGradient>
+                  </defs>
+                  <!-- Spatial grid and compass rose background -->
+                  <g class="map-grid-lines">
+                    <line x1="0" y1="100" x2="500" y2="100" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
+                    <line x1="0" y1="200" x2="500" y2="200" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
+                    <line x1="0" y1="300" x2="500" y2="300" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
+                    <line x1="100" y1="0" x2="100" y2="400" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
+                    <line x1="200" y1="0" x2="200" y2="400" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
+                    <line x1="300" y1="0" x2="300" y2="400" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
+                    <line x1="400" y1="0" x2="400" y2="400" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
+                  </g>
+                  <g id="map-edges-layer"></g>
+                  <g id="map-nodes-layer"></g>
+                  <g id="map-labels-layer"></g>
+                </svg>
+                <div class="map-tooltip" id="map-tooltip" style="display:none;"></div>
+                <div class="map-legend" id="map-legend">
+                  <span class="map-legend__label" id="map-legend-min">0</span>
+                  <div class="map-legend__bar"></div>
+                  <span class="map-legend__label" id="map-legend-max">Max</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="tick-card-panel" style="margin-top: var(--space-4);">
+              <div class="tick-card-panel__title">📈 Chronological County List Accumulation</div>
+              <div class="chart-container">
+                <canvas id="tick-chart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Subregion List & Timeline Additions -->
+          <div class="tick-column tick-column--right">
+            <div class="tick-card-panel tick-card-panel--flex">
+              <div class="tick-card-panel__title" style="display:flex;align-items:center;justify-content:space-between;">
+                <span>📊 Subregion Lists</span>
+                <button id="btn-download-csv" class="btn btn--ghost btn--xs" title="Download table as CSV">📥 Export CSV</button>
+              </div>
+              <div class="tick-search-box">
+                <input type="text" id="tick-search-subregions" class="control-input control-input--sm" placeholder="Search counties..." />
+              </div>
+              <div class="subregion-list-wrapper">
+                <table class="subregion-list-table">
+                  <thead>
+                    <tr>
+                      <th>County</th>
+                      <th>State</th>
+                      <th style="text-align: right;">Total Ticks</th>
+                      <th style="text-align: right;">Timeframe Start</th>
+                      <th style="text-align: right;">Timeframe End</th>
+                      <th style="text-align: right;">Added</th>
+                    </tr>
+                  </thead>
+                  <tbody id="subregion-list-body">
+                    <!-- Dynamic rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="tick-card-panel tick-card-panel--flex" style="margin-top: var(--space-4);">
+              <div class="tick-card-panel__title" id="timeline-additions-title">⏱️ Timeframe Additions (0)</div>
+              <div class="timeline-additions-wrapper">
+                <ul class="timeline-additions-list" id="timeline-additions-list">
+                  <!-- Dynamic addition milestones -->
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings View (hidden by default) -->
+      <div class="settings-wrapper" id="settings-wrapper" style="display: none;">
+        <div class="settings-header">
+          <h2 class="settings-header__title">⚙️ Tracker Settings & Exclusions</h2>
+          <p class="settings-header__desc">Define species and regions that should not be counted toward your lists (e.g. non-countable exotics).</p>
+        </div>
+
+        <div class="settings-grid">
+          <!-- Left Column: Add Exclusion Form -->
+          <div class="settings-column">
+            <div class="settings-card">
+              <h3 class="settings-card__title">➕ Add Custom Exclusion</h3>
+              <form id="form-add-exclusion" class="settings-form">
+                <div class="form-group">
+                  <label for="exclusion-species" class="form-label">Species Name</label>
+                  <input type="text" id="exclusion-species" class="control-input" placeholder="Start typing species common name..." list="datalist-species" autocomplete="off" required />
+                  <datalist id="datalist-species"></datalist>
+                </div>
+                <div class="form-group">
+                  <label for="exclusion-state" class="form-label">State / Province</label>
+                  <select id="exclusion-state" class="control-select" required>
+                    <option value="">Select State</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="exclusion-county" class="form-label">County (Optional)</label>
+                  <select id="exclusion-county" class="control-select">
+                    <option value="">All Counties</option>
+                  </select>
+                </div>
+                <button type="submit" id="btn-add-exclusion" class="btn btn--primary" style="width:100%; margin-top:var(--space-2);">
+                  💾 Add Exclusion Rule
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Right Column: Exclusions Lists -->
+          <div class="settings-column">
+            <!-- User Rules Card -->
+            <div class="settings-card">
+              <h3 class="settings-card__title">👤 Custom User Exclusions</h3>
+              <div class="settings-list-wrapper">
+                <table class="settings-table">
+                  <thead>
+                    <tr>
+                      <th>Species</th>
+                      <th>Region</th>
+                      <th style="text-align: right; width: 60px;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="user-exclusions-body">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- System Rules Card -->
+            <div class="settings-card" style="margin-top: var(--space-4);">
+              <h3 class="settings-card__title">🏛️ System Default Exclusions</h3>
+              <p class="settings-card__desc" style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); margin-bottom: var(--space-3);">
+                These are standard midwestern exotics/non-countable species. Toggle them off if you want to include them in your counts.
+              </p>
+              <div class="settings-list-wrapper">
+                <table class="settings-table">
+                  <thead>
+                    <tr>
+                      <th>Species</th>
+                      <th>Region</th>
+                      <th style="text-align: right; width: 100px;">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="system-exclusions-body">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Loading overlay -->
       <div class="loading-overlay is-hidden" id="loading-overlay">
         <div class="spinner"></div>
@@ -219,9 +458,13 @@
   <!-- Dependencies (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
 
   <!-- Application Scripts -->
   <script src="db.js"></script>
+  <script src="us_atlas.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

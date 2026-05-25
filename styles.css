@@ -464,6 +464,12 @@ a:hover {
   font-size: var(--font-size-xs);
 }
 
+.btn--xs {
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .btn--icon {
   padding: var(--space-2);
   width: 32px;
@@ -975,7 +981,15 @@ a:hover {
 }
 
 .file-input-hidden {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .or-divider {
@@ -1027,3 +1041,683 @@ a:hover {
   color: var(--color-danger) !important;
   border-bottom: 2px solid var(--color-danger) !important;
 }
+
+/* --------------------------------------------------------------------------
+   19. Tick Explorer Navigation & Layout
+   -------------------------------------------------------------------------- */
+
+.app-header__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: var(--space-8);
+  height: 100%;
+}
+
+.header-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  padding: 0 var(--space-4);
+  height: var(--header-height);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  transition: all var(--transition-fast);
+}
+
+.header-tab:hover {
+  color: var(--color-text-primary);
+  background: hsla(220, 20%, 90%, 0.03);
+}
+
+.header-tab.is-active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+  text-shadow: 0 0 10px hsla(160, 70%, 45%, 0.3);
+}
+
+.tick-explorer-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5);
+  gap: var(--space-4);
+  overflow-y: auto;
+  background: var(--color-bg-primary);
+  animation: fadeIn var(--transition-base);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --------------------------------------------------------------------------
+   20. Tick Summary Cards
+   -------------------------------------------------------------------------- */
+
+.tick-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.tick-card {
+  background: var(--color-bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  transition: all var(--transition-base);
+}
+
+.tick-card:hover {
+  border-color: var(--color-border);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.tick-card__label {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tick-card__value {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.1;
+  background: linear-gradient(135deg, var(--color-text-primary), var(--color-text-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.tick-card:first-child .tick-card__value {
+  background: linear-gradient(135deg, var(--color-accent), hsl(180, 70%, 55%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.tick-card__sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+/* --------------------------------------------------------------------------
+   21. Timeframe Sighting Analyzer
+   -------------------------------------------------------------------------- */
+
+.tick-analyzer-bar {
+  background: var(--color-bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tick-analyzer-bar__title {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tick-analyzer-bar__controls {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.analyzer-date-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.control-date--sm {
+  padding: 4px var(--space-2) !important;
+  font-size: var(--font-size-xs) !important;
+  max-width: 140px;
+  height: 32px;
+}
+
+.quick-pick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.quick-pick-btn {
+  font-size: 10px !important;
+  padding: 3px 8px !important;
+  border-radius: var(--radius-sm) !important;
+  white-space: nowrap;
+  border: 1px solid var(--color-border-subtle) !important;
+  transition: all 0.15s ease;
+}
+
+.quick-pick-btn:hover {
+  background: var(--color-accent) !important;
+  color: #fff !important;
+  border-color: var(--color-accent) !important;
+}
+
+.quick-pick-btn.is-active {
+  background: rgba(20, 184, 166, 0.15) !important;
+  color: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+}
+
+/* --------------------------------------------------------------------------
+   22. Tick Dashboard Body
+   -------------------------------------------------------------------------- */
+
+.tick-dashboard-body {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-4);
+  flex: 1;
+}
+
+@media (max-width: 1024px) {
+  .tick-dashboard-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tick-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.tick-card-panel {
+  background: var(--color-bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+}
+
+.tick-card-panel--flex {
+  flex: 1;
+  max-height: 500px;
+  overflow: hidden;
+}
+
+.tick-card-panel__title {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
+  letter-spacing: -0.01em;
+}
+
+/* --------------------------------------------------------------------------
+   23. Interactive Geographic Heatmap
+   -------------------------------------------------------------------------- */
+
+.map-container {
+  background: hsla(220, 20%, 5%, 0.4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 4;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-legend {
+  position: absolute;
+  bottom: var(--space-3);
+  right: var(--space-3);
+  background: hsla(220, 20%, 8%, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 4px 12px hsla(0, 0%, 0%, 0.3);
+}
+
+.map-legend__label {
+  font-family: var(--font-family-mono);
+  font-size: 9px;
+  color: var(--color-text-secondary);
+}
+
+.map-legend__bar {
+  width: 100px;
+  height: 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(to right, hsl(55, 100%, 65%), hsl(28, 100%, 55%), hsl(0, 100%, 48%));
+}
+
+.tick-svg-map {
+  width: 100%;
+  height: 100%;
+}
+
+.map-grid-lines line {
+  stroke-width: 0.5px;
+}
+
+.county-path-shape {
+  cursor: pointer;
+  transition: fill var(--transition-base), stroke var(--transition-fast), stroke-width var(--transition-fast), filter var(--transition-fast);
+}
+
+.county-path-shape:hover {
+  filter: drop-shadow(0 0 8px var(--color-accent));
+}
+
+.county-node-outer {
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.county-node-outer:hover {
+  filter: drop-shadow(0 0 8px var(--color-accent));
+}
+
+.county-node-outer:hover .county-node {
+  transform: scale(1.3);
+  stroke-width: 2px !important;
+}
+
+.county-node-outer.is-selected .county-node {
+  stroke-width: 2.5px !important;
+  stroke: var(--color-text-primary) !important;
+  filter: drop-shadow(0 0 12px var(--color-accent));
+}
+
+.county-node {
+  transform-origin: center;
+  transition: transform var(--transition-fast), fill var(--transition-base), stroke-width var(--transition-fast);
+}
+
+.map-label {
+  pointer-events: none;
+  font-family: var(--font-family-primary);
+  font-size: 8px;
+  font-weight: var(--font-weight-semibold);
+  fill: var(--color-text-secondary);
+  text-shadow: 0 1px 2px hsla(0, 0%, 0%, 0.8);
+  transition: fill var(--transition-fast);
+}
+
+.county-node-outer:hover ~ .map-labels-layer .map-label {
+  fill: var(--color-text-primary);
+}
+
+.county-node-glow-ring {
+  animation: pulse-ring 3s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;
+  transform-origin: center;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.6); opacity: 0.8; }
+  80%, 100% { transform: scale(1.8); opacity: 0; }
+}
+
+.map-tooltip {
+  position: absolute;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  pointer-events: none;
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-dropdown);
+  transform: translate(-50%, -100%);
+  margin-top: -12px;
+  backdrop-filter: blur(8px);
+}
+
+.map-tooltip__title {
+  font-weight: var(--font-weight-bold);
+  margin-bottom: 2px;
+}
+
+.map-tooltip__value {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-family-mono);
+}
+
+/* --------------------------------------------------------------------------
+   24. Accumulation Curve Canvas Container
+   -------------------------------------------------------------------------- */
+
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 180px;
+}
+
+/* --------------------------------------------------------------------------
+   25. Subregion List Table & Timeline Additions
+   -------------------------------------------------------------------------- */
+
+.tick-search-box {
+  margin-bottom: var(--space-3);
+}
+
+.subregion-list-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: hsla(220, 20%, 5%, 0.2);
+}
+
+.subregion-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.subregion-list-table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-elevated);
+  border-bottom: 2px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: left;
+}
+
+.subregion-list-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+}
+
+.subregion-list-table tbody tr {
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.subregion-list-table tbody tr:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.subregion-list-table tbody tr.is-selected {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.subregion-list-table tbody tr.is-selected td {
+  color: var(--color-accent);
+}
+
+.subregion-list-table td__ticks {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-align: right;
+}
+
+/* Timeline additions items */
+
+.timeline-additions-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: hsla(220, 20%, 5%, 0.2);
+}
+
+.timeline-additions-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-addition-item {
+  display: flex;
+  align-items: flex-start;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  gap: var(--space-3);
+  transition: background var(--transition-fast);
+}
+
+.timeline-addition-item:hover {
+  background: hsla(220, 15%, 20%, 0.2);
+}
+
+.timeline-addition-item__marker {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.timeline-addition-item__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timeline-addition-item__title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.timeline-addition-item__sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.timeline-addition-item__date {
+  font-family: var(--font-family-mono);
+  font-weight: 500;
+  color: var(--color-accent);
+}
+
+/* ==========================================================================
+   14. Settings View
+   ========================================================================== */
+
+.settings-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  background: var(--color-bg-primary);
+}
+
+.settings-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings-header__title {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  background: linear-gradient(135deg, var(--color-accent), hsl(190, 70%, 55%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.settings-header__desc {
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-card {
+  background: var(--color-bg-glass);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-md);
+  transition: border-color var(--transition-fast);
+}
+
+.settings-card:hover {
+  border-color: hsla(160, 70%, 45%, 0.25);
+}
+
+.settings-card__title {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.settings-card__desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+}
+
+.settings-list-wrapper {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: hsla(220, 20%, 5%, 0.2);
+  overflow: hidden;
+}
+
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.settings-table th {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-elevated);
+  border-bottom: 2px solid var(--color-border);
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.settings-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  vertical-align: middle;
+  color: var(--color-text-primary);
+}
+
+.settings-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.settings-table tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.settings-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
