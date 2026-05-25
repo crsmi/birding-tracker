@@ -187,9 +187,40 @@
      6. CSV Parsing Utilities
      ----------------------------------------------------------------------- */
 
-  /** Convert a date string (YYYY-MM-DD) to day-of-year. */
-  function dateStrToDayOfYear(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00');
+  /**
+   * Robust date parser supporting YYYY-MM-DD and DD MMM YYYY (e.g. 24 May 2026) formats.
+   * @returns {Date|null}
+   */
+  function parseRobustDate(dateStr) {
+    if (!dateStr) return null;
+    const str = dateStr.trim();
+
+    // Standard ISO: YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const d = new Date(str + 'T00:00:00');
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    // DD MMM YYYY (e.g., 24 May 2026)
+    const match = str.match(/^(\d{1,2})\s+([A-Za-z]{3,10})\s+(\d{4})$/);
+    if (match) {
+      const day = parseInt(match[1], 10);
+      const monthStr = match[2].substring(0, 3).toLowerCase();
+      const year = parseInt(match[3], 10);
+      const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      const month = months.indexOf(monthStr);
+      if (month !== -1) {
+        return new Date(year, month, day);
+      }
+    }
+
+    // Fallback
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  /** Convert a Date object to a day-of-year integer. */
+  function dateToDayOfYear(d) {
     const start = new Date(d.getFullYear(), 0, 0);
     return Math.floor((d - start) / 86400000);
   }
@@ -210,15 +241,15 @@
         chunk: function (chunk, parser) {
           for (const d of chunk.data) {
             rowCount++;
-            const submissionId = d['Submission ID'] || '';
+            const submissionId = d['Submission ID'] || d['SubID'] || '';
             const commonName = (d['Common Name'] || '').trim();
             const scientificName = (d['Scientific Name'] || '').trim();
-            const taxonomicOrder = parseInt(d['Taxonomic Order'], 10) || 0;
+            const taxonomicOrder = parseInt(d['Taxonomic Order'] || d['Taxon Order'], 10) || 0;
             const countRaw = d['Count'] || '0';
             const count = countRaw === 'X' ? 1 : parseInt(countRaw, 10) || 0;
-            const stateVal = (d['State/Province'] || '').trim();
-            const county = (d['County'] || '').trim();
-            const locationId = (d['Location ID'] || '').trim();
+            const stateVal = (d['State/Province'] || d['S/P'] || '').trim();
+            let county = (d['County'] || '').trim();
+            const locationId = (d['Location ID'] || d['LocID'] || '').trim();
             const location = (d['Location'] || '').trim();
             const latitude = parseFloat(d['Latitude']) || 0;
             const longitude = parseFloat(d['Longitude']) || 0;
@@ -232,9 +263,21 @@
 
             if (!commonName || !dateStr) continue;
 
-            const yearNum = parseInt(dateStr.substring(0, 4), 10);
-            const dayOfYear = dateStrToDayOfYear(dateStr);
-            const id = submissionId + '::' + commonName;
+            const parsedDate = parseRobustDate(dateStr);
+            if (!parsedDate) continue;
+
+            const yearNum = parsedDate.getFullYear();
+            const dayOfYear = dateToDayOfYear(parsedDate);
+
+            // Dynamic County parsing fallback from location
+            if (!county && location) {
+              const countyMatch = location.match(/\(([^)]+?)\s+(?:Co\.|County)\)/i);
+              if (countyMatch) {
+                county = countyMatch[1].trim();
+              }
+            }
+
+            const id = (submissionId || ('ROW_' + rowCount)) + '::' + commonName;
 
             results.push({
               id,
