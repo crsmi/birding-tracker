@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Local client-side eBird data tracker with year-over-year species analysis, target scouting alerts, and interactive time travel controls." />
+  <title>eBird YoY Species Tracker</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell" id="app-shell">
+    <!-- ================================================================
+         HEADER
+         ================================================================ -->
+    <header class="app-header">
+      <div class="app-header__brand">
+        <span class="app-header__logo">🐦</span>
+        <h1 class="app-header__title">eBird YoY Tracker</h1>
+      </div>
+      <div class="app-header__actions">
+        <button id="btn-export-state" class="btn btn--secondary btn--sm" title="Export Dashboard State">
+          📤 Export State
+        </button>
+        <label class="btn btn--secondary btn--sm" title="Import Dashboard State" style="cursor:pointer;">
+          📥 Import State
+          <input type="file" id="input-import-state" class="file-input-hidden" accept=".json" />
+        </label>
+        <button id="btn-clear-data" class="btn btn--danger btn--sm" title="Clear All Data">
+          🗑️ Clear Data
+        </button>
+      </div>
+    </header>
+
+    <!-- ================================================================
+         SIDEBAR
+         ================================================================ -->
+    <aside class="app-sidebar" id="sidebar">
+      <!-- File Import -->
+      <div class="sidebar-section">
+        <span class="sidebar-section__title">📂 Data Import</span>
+        <label class="btn btn--primary" style="cursor:pointer; width: 100%;">
+          📁 Load eBird File
+          <input type="file" id="input-file" class="file-input-hidden" accept=".csv,.zip" />
+        </label>
+        <button id="btn-load-mock" class="btn btn--secondary" style="width: 100%;">
+          🧪 Generate Mock Data
+        </button>
+      </div>
+
+      <!-- Region Filter -->
+      <div class="sidebar-section">
+        <span class="sidebar-section__title">🌍 Region Filter</span>
+        <select id="filter-state" class="control-select" title="Filter by State/Province">
+          <option value="">All States</option>
+        </select>
+        <select id="filter-county" class="control-select" title="Filter by County">
+          <option value="">All Counties</option>
+        </select>
+      </div>
+
+      <!-- Time Travel -->
+      <div class="sidebar-section">
+        <span class="sidebar-section__title">⏳ Time Travel</span>
+        <label style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">Target Year</label>
+        <select id="filter-year" class="control-select" title="Select target year for YoY analysis">
+          <!-- Populated dynamically -->
+        </select>
+        <label style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">Simulated Date</label>
+        <input type="date" id="filter-sim-date" class="control-date" title="Simulated current date for Past Due calculations" />
+      </div>
+
+      <!-- Species Search -->
+      <div class="sidebar-section">
+        <span class="sidebar-section__title">🔍 Search</span>
+        <input
+          type="text"
+          id="filter-search"
+          class="control-input"
+          placeholder="Search species..."
+          autocomplete="off"
+        />
+      </div>
+
+      <!-- Options -->
+      <div class="sidebar-section">
+        <span class="sidebar-section__title">⚙️ Options</span>
+        <label class="control-toggle" title="When enabled, merge subspecies (e.g. Yellow-rumped Warbler (Myrtle)) under their parent species.">
+          <input type="checkbox" id="toggle-aggregate" />
+          <span class="control-toggle__track"></span>
+          Aggregate Subspecies
+        </label>
+        <label class="control-toggle" title="Show only species marked as targets.">
+          <input type="checkbox" id="toggle-targets-only" />
+          <span class="control-toggle__track"></span>
+          Targets Only
+        </label>
+        <label class="control-toggle" title="Show only past-due target species.">
+          <input type="checkbox" id="toggle-past-due-only" />
+          <span class="control-toggle__track"></span>
+          Past Due Only
+        </label>
+      </div>
+
+      <!-- Stats (bottom) -->
+      <div class="sidebar-section" style="margin-top: auto;">
+        <span class="sidebar-section__title">📊 Database</span>
+        <div style="display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--font-size-xs); color: var(--color-text-tertiary);">
+          <span>Records: <strong id="stat-total-records" style="color: var(--color-text-primary);">0</strong></span>
+          <span>Species: <strong id="stat-total-species" style="color: var(--color-text-primary);">0</strong></span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ================================================================
+         MAIN CONTENT
+         ================================================================ -->
+    <main class="app-main" id="main-content">
+      <!-- Stats Bar -->
+      <div class="stats-bar" id="stats-bar" style="display:none;">
+        <div class="stat-chip stat-chip--accent">
+          <span>Species</span>
+          <span class="stat-chip__value" id="stat-bar-species">0</span>
+        </div>
+        <div class="stat-chip">
+          <span>Targets</span>
+          <span class="stat-chip__value" id="stat-bar-targets">0</span>
+        </div>
+        <div class="stat-chip stat-chip--warning">
+          <span>⚠️ Past Due</span>
+          <span class="stat-chip__value" id="stat-bar-pastdue">0</span>
+        </div>
+        <div class="stat-chip">
+          <span>Year</span>
+          <span class="stat-chip__value" id="stat-bar-year">—</span>
+        </div>
+        <div class="stat-chip">
+          <span>Sim Date</span>
+          <span class="stat-chip__value" id="stat-bar-simdate">—</span>
+        </div>
+      </div>
+
+      <!-- Alerts Panel -->
+      <div class="alerts-panel" id="alerts-panel">
+        <div class="alerts-panel__header">
+          <span class="alerts-panel__title">⚠️ Past Due Scouting Alerts</span>
+          <button id="btn-toggle-alerts" class="btn btn--ghost btn--sm">Hide</button>
+        </div>
+        <ul class="alerts-panel__list" id="alerts-list">
+          <!-- Populated dynamically -->
+        </ul>
+      </div>
+
+      <!-- Empty State (shown when no data loaded) -->
+      <div class="empty-state" id="empty-state">
+        <div class="empty-state__icon">🦉</div>
+        <h2 class="empty-state__title">Welcome to eBird YoY Tracker</h2>
+        <p class="empty-state__desc">
+          Load your personal eBird data export to visualize year-over-year species tracking with
+          predictive scouting alerts. Your data never leaves your browser.
+        </p>
+        <div class="import-section">
+          <label class="drop-zone" id="drop-zone">
+            <div class="drop-zone__icon">📁</div>
+            <div class="drop-zone__label">Drop your eBird file here</div>
+            <div class="drop-zone__hint">Accepts .csv or .zip from eBird's "Download My Data"</div>
+            <input type="file" id="input-file-drop" class="file-input-hidden" accept=".csv,.zip" />
+          </label>
+          <div class="or-divider">or</div>
+          <button id="btn-load-mock-main" class="btn btn--secondary">
+            🧪 Quick Start with Mock Data
+          </button>
+        </div>
+        <div class="progress-bar" id="import-progress" style="display: none; max-width: 500px;">
+          <div class="progress-bar__fill" id="import-progress-fill"></div>
+        </div>
+        <div class="progress-status" id="import-status" style="display: none;"></div>
+      </div>
+
+      <!-- Data Grid (shown when data is loaded) -->
+      <div class="grid-wrapper" id="grid-wrapper" style="display: none;">
+        <table class="data-grid" id="data-grid">
+          <thead>
+            <tr id="grid-header-row">
+              <!-- Header cells dynamically populated -->
+            </tr>
+          </thead>
+          <tbody id="grid-body">
+            <!-- Rows dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Loading overlay -->
+      <div class="loading-overlay is-hidden" id="loading-overlay">
+        <div class="spinner"></div>
+        <span id="loading-text" style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">Processing...</span>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Dependencies (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <!-- Application Scripts -->
+  <script src="db.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
