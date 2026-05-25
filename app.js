@@ -1435,9 +1435,9 @@
           return true;
         }).length;
 
-        if (DOM.analyzerStart) DOM.analyzerStart.textContent = `Start: ${startTotal} Ticks`;
-        if (DOM.analyzerEnd) DOM.analyzerEnd.textContent = `End: ${endTotal} Ticks`;
-        if (DOM.analyzerAdded) DOM.analyzerAdded.textContent = `+${addedTotal} Ticks Gained`;
+        if (DOM.analyzerStart) DOM.analyzerStart.textContent = `Start: ${startTotal.toLocaleString()} Ticks`;
+        if (DOM.analyzerEnd) DOM.analyzerEnd.textContent = `End: ${endTotal.toLocaleString()} Ticks`;
+        if (DOM.analyzerAdded) DOM.analyzerAdded.textContent = `+${addedTotal.toLocaleString()} Ticks Gained`;
 
         DOM.analyzerSummary.style.display = 'flex';
       } else if (DOM.analyzerSummary) {
