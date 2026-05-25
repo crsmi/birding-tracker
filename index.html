@@ -216,17 +216,17 @@
         <!-- Top Stats Cards -->
         <div class="tick-stats-grid">
           <div class="tick-card">
-            <span class="tick-card__label">🗺️ Total County Ticks</span>
+            <span class="tick-card__label" id="tick-stat-total-label">🗺️ Total County Ticks</span>
             <span class="tick-card__value" id="tick-stat-total">0</span>
             <span class="tick-card__sub" id="tick-stat-total-desc">Across all subregions</span>
           </div>
           <div class="tick-card">
-            <span class="tick-card__label">📍 Counties Visited</span>
+            <span class="tick-card__label" id="tick-stat-counties-label">📍 Counties Visited</span>
             <span class="tick-card__value" id="tick-stat-counties">0</span>
             <span class="tick-card__sub" id="tick-stat-counties-desc">Unique counties logged</span>
           </div>
           <div class="tick-card">
-            <span class="tick-card__label">🏆 Top County</span>
+            <span class="tick-card__label" id="tick-stat-top-label">🏆 Top County</span>
             <span class="tick-card__value" id="tick-stat-top">None</span>
             <span class="tick-card__sub" id="tick-stat-top-count">0 species</span>
           </div>
@@ -263,6 +263,13 @@
               </div>
             </div>
             <label class="analyzer-date-label">
+              Geographic Level
+              <select id="tick-level" class="control-select control-select--sm" style="height: 32px; min-width: 130px; font-size: var(--font-size-xs); padding: 4px 8px;">
+                <option value="county">📍 County Ticks</option>
+                <option value="state">🌍 State Ticks</option>
+              </select>
+            </label>
+            <label class="analyzer-date-label">
               Map Color Mode
               <select id="map-color-mode" class="control-select control-select--sm" style="height: 32px; min-width: 170px; font-size: var(--font-size-xs); padding: 4px 8px;">
                 <option value="total">📊 Total Lifetime Ticks</option>
@@ -282,9 +289,18 @@
             <div class="tick-card-panel">
               <div class="tick-card-panel__title" style="display:flex;align-items:center;justify-content:space-between;">
                 <span>🗺️ Geographic Subregion Heatmap</span>
-                <button id="btn-download-map" class="btn btn--ghost btn--xs" title="Download map as PNG image">📥 Save Map</button>
+                <div style="display:flex; gap: var(--space-2); align-items: center; flex-wrap: wrap;">
+                  <label class="control-toggle" style="margin: 0; font-size: 11px; white-space: nowrap; height: 24px; display: inline-flex; align-items: center; gap: 6px; padding-right: 4px;" title="Toggle between exporting a rich infographic layout with legend/metadata vs just the plain map image">
+                    <input type="checkbox" id="toggle-export-infographic" checked />
+                    <span class="control-toggle__track"></span>
+                    🖼️ Export Infographic
+                  </label>
+                  <a id="btn-ebird-lifelist" class="btn btn--ghost btn--xs btn-lifelist-link" target="_blank" rel="noopener noreferrer" title="Go to eBird to download the life list CSV for the active region">🔗 eBird Life List</a>
+                  <button id="btn-download-map" class="btn btn--ghost btn--xs" title="Download map as PNG image">📥 Save Map</button>
+                </div>
               </div>
               <div class="map-container" id="map-container">
+                <button id="btn-map-zoom-out" class="map-zoom-out-btn is-hidden" title="Zoom out to parent region">⬅️ Zoom Out</button>
                 <!-- SVG map will be rendered dynamically here -->
                 <svg id="tick-svg-map" class="tick-svg-map" viewBox="0 0 500 400">
                   <defs>
@@ -293,16 +309,6 @@
                       <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0"></stop>
                     </radialGradient>
                   </defs>
-                  <!-- Spatial grid and compass rose background -->
-                  <g class="map-grid-lines">
-                    <line x1="0" y1="100" x2="500" y2="100" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
-                    <line x1="0" y1="200" x2="500" y2="200" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
-                    <line x1="0" y1="300" x2="500" y2="300" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
-                    <line x1="100" y1="0" x2="100" y2="400" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
-                    <line x1="200" y1="0" x2="200" y2="400" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
-                    <line x1="300" y1="0" x2="300" y2="400" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
-                    <line x1="400" y1="0" x2="400" y2="400" stroke="var(--color-border-subtle)" stroke-dasharray="4"></line>
-                  </g>
                   <g id="map-edges-layer"></g>
                   <g id="map-nodes-layer"></g>
                   <g id="map-labels-layer"></g>

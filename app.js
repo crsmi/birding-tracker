@@ -52,6 +52,8 @@
     selectedMapCounty: '',
     tickChartInstance: null,
     visualCentroids: new Map(),
+    tickSortColumn: 'speciesCount',
+    tickSortDirection: 'desc',
   };
 
   /* -----------------------------------------------------------------------
@@ -129,6 +131,15 @@
     analyzerAdded: $('tick-analyzer-added'),
     btnDownloadMap: $('btn-download-map'),
     btnDownloadCsv: $('btn-download-csv'),
+    btnEbirdLifelist: $('btn-ebird-lifelist'),
+    btnMapZoomOut: $('btn-map-zoom-out'),
+    tickLevel: $('tick-level'),
+    toggleExportInfographic: $('toggle-export-infographic'),
+    tickStatTotalLabel: $('tick-stat-total-label'),
+    tickStatCountiesLabel: $('tick-stat-counties-label'),
+    tickStatTopLabel: $('tick-stat-top-label'),
+    tickStatTotalDesc: $('tick-stat-total-desc'),
+    tickStatCountiesDesc: $('tick-stat-counties-desc'),
 
     // Settings DOM
     tabSettings: $('tab-settings'),
@@ -738,6 +749,21 @@
         DOM.toggleTrueSpecies.checked = savedTrueSpecies;
       }
 
+      const savedTickLevel = await DB.getSetting('tickLevel');
+      if (savedTickLevel && DOM.tickLevel) {
+        DOM.tickLevel.value = savedTickLevel;
+        if (savedTickLevel === 'state' && DOM.filterCounty) {
+          DOM.filterCounty.disabled = true;
+          DOM.filterCounty.value = '';
+          state.filterCounty = '';
+        }
+      }
+
+      const savedExportInfographic = await DB.getSetting('toggleExportInfographic');
+      if (savedExportInfographic !== null && DOM.toggleExportInfographic) {
+        DOM.toggleExportInfographic.checked = savedExportInfographic;
+      }
+
       const savedUserExclusions = await DB.getSetting('userExclusions');
       state.userExclusions = savedUserExclusions || [];
 
@@ -1302,11 +1328,13 @@
   }
 
   function computeTickMilestones() {
-    const milestonesMap = new Map(); // "state::county::commonName" -> earliest observation
-    const countyHotspots = new Map(); // "state::county" -> [{lat, lng}]
+    const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+    const milestonesMap = new Map(); // "state::county::commonName" or "state::commonName" -> earliest observation
+    const hotspots = new Map(); // "state::county" or "state" -> [{lat, lng}]
 
     for (const obs of state.observations) {
-      if (!obs.state || !obs.county || !obs.commonName) continue;
+      if (!obs.state || !obs.commonName) continue;
+      if (!isStateLevel && !obs.county) continue;
 
       // Filter non-true species if that toggle is active
       if (state.showTrueSpeciesOnly && !isTrueSpecies(obs.commonName, obs.scientificName)) {
@@ -1314,7 +1342,7 @@
       }
 
       // Filter out non-countable exotics/exclusions
-      if (isNonCountable(obs.commonName, obs.state, obs.county)) {
+      if (isNonCountable(obs.commonName, obs.state, isStateLevel ? '' : obs.county)) {
         continue;
       }
 
@@ -1323,7 +1351,7 @@
         name = stripSubspecies(name);
       }
 
-      const key = `${obs.state}::${obs.county}::${name}`;
+      const key = isStateLevel ? `${obs.state}::${name}` : `${obs.state}::${obs.county}::${name}`;
       const existing = milestonesMap.get(key);
 
       if (!existing || obs.date < existing.date) {
@@ -1332,7 +1360,7 @@
           commonName: name,
           scientificName: obs.scientificName,
           state: obs.state,
-          county: obs.county,
+          county: isStateLevel ? '' : obs.county,
           lat: obs.latitude,
           lng: obs.longitude
         });
@@ -1340,11 +1368,11 @@
 
       // Collect GPS coordinates for centroid calculation
       if (obs.latitude !== 0 && obs.longitude !== 0) {
-        const cKey = `${obs.state}::${obs.county}`;
-        if (!countyHotspots.has(cKey)) {
-          countyHotspots.set(cKey, []);
+        const cKey = isStateLevel ? obs.state : `${obs.state}::${obs.county}`;
+        if (!hotspots.has(cKey)) {
+          hotspots.set(cKey, []);
         }
-        countyHotspots.get(cKey).push({ lat: obs.latitude, lng: obs.longitude });
+        hotspots.get(cKey).push({ lat: obs.latitude, lng: obs.longitude });
       }
     }
 
@@ -1352,9 +1380,9 @@
     state.tickMilestones = Array.from(milestonesMap.values());
     state.tickMilestones.sort((a, b) => a.date.localeCompare(b.date));
 
-    // Calculate county centroids
+    // Calculate centroids
     const centroids = new Map();
-    for (const [cKey, coords] of countyHotspots) {
+    for (const [cKey, coords] of hotspots) {
       const sum = coords.reduce((acc, c) => ({ lat: acc.lat + c.lat, lng: acc.lng + c.lng }), { lat: 0, lng: 0 });
       centroids.set(cKey, {
         lat: sum.lat / coords.length,
@@ -1365,21 +1393,67 @@
     return centroids;
   }
 
+  function getEbirdRegionCode() {
+    if (!state.filterState) {
+      return 'US';
+    }
+    const cleanState = cleanStateCode(state.filterState);
+    if (!state.selectedMapCounty) {
+      return `US-${cleanState}`;
+    }
+
+    const stateFips = STATE_TO_FIPS[cleanState];
+    if (stateFips && typeof topojson !== 'undefined' && window.US_ATLAS) {
+      try {
+        const counties = topojson.feature(window.US_ATLAS, window.US_ATLAS.objects.counties).features;
+        const countyFeature = counties.find(
+          f => f.id.startsWith(stateFips) && 
+               f.properties.name.toLowerCase() === state.selectedMapCounty.toLowerCase()
+        );
+        if (countyFeature) {
+          const countyFipsSuffix = countyFeature.id.slice(2);
+          return `US-${cleanState}-${countyFipsSuffix}`;
+        }
+      } catch (err) {
+        console.error('Error mapping county to eBird region code:', err);
+      }
+    }
+
+    return `US-${cleanState}`;
+  }
+
   async function renderTickExplorer() {
     showLoading('Rendering Tick Explorer...');
 
     try {
       const centroids = computeTickMilestones();
 
+      // Update eBird helper link
+      if (DOM.btnEbirdLifelist) {
+        const regionCode = getEbirdRegionCode();
+        DOM.btnEbirdLifelist.href = `https://ebird.org/lifelist?r=${regionCode}&time=life&fmt=csv`;
+        
+        let label = 'US';
+        if (state.filterState) {
+          const cleanState = cleanStateCode(state.filterState);
+          label = cleanState;
+          if (state.selectedMapCounty) {
+            label = `${state.selectedMapCounty}, ${cleanState}`;
+          }
+        }
+        DOM.btnEbirdLifelist.textContent = `🔗 Download ${label} Life List`;
+      }
+
       // Aggregate list sizes by subregions
-      const subregions = new Map(); // "state::county" -> { county, state, lat, lng, speciesCount, speciesSet }
+      const subregions = new Map(); // "state::county" or "state" -> { county, state, lat, lng, speciesCount, speciesSet }
+      const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
 
       for (const m of state.tickMilestones) {
-        const cKey = `${m.state}::${m.county}`;
+        const cKey = isStateLevel ? m.state : `${m.state}::${m.county}`;
         if (!subregions.has(cKey)) {
           const centroid = centroids.get(cKey) || { lat: m.lat, lng: m.lng };
           subregions.set(cKey, {
-            county: m.county,
+            county: isStateLevel ? '' : m.county,
             state: m.state,
             lat: centroid.lat,
             lng: centroid.lng,
@@ -1395,41 +1469,79 @@
         }
       }
 
-      // Find top county
-      let topCountyName = 'None';
-      let topCountyCount = 0;
+      // Find top region
+      let topRegionName = 'None';
+      let topRegionCount = 0;
       let maxSpeciesCount = 0;
       
       for (const [_, sub] of subregions) {
         if (sub.speciesCount > maxSpeciesCount) {
           maxSpeciesCount = sub.speciesCount;
-          topCountyName = sub.county;
-          topCountyCount = sub.speciesCount;
+          topRegionName = isStateLevel ? cleanStateCode(sub.state) : sub.county;
+          topRegionCount = sub.speciesCount;
         }
       }
 
       // Update Summary Cards
+      if (DOM.tickStatTotalLabel) {
+        DOM.tickStatTotalLabel.textContent = isStateLevel ? '🌍 Total State Ticks' : '🗺️ Total County Ticks';
+      }
+      if (DOM.tickStatCountiesLabel) {
+        DOM.tickStatCountiesLabel.textContent = isStateLevel ? '📍 States Visited' : '📍 Counties Visited';
+      }
+      if (DOM.tickStatTopLabel) {
+        DOM.tickStatTopLabel.textContent = isStateLevel ? '🏆 Top State' : '🏆 Top County';
+      }
+
       DOM.tickStatTotal.textContent = state.tickMilestones.length.toLocaleString();
       DOM.tickStatCounties.textContent = subregions.size.toLocaleString();
-      DOM.tickStatTop.textContent = topCountyName;
-      DOM.tickStatTopCount.textContent = `${topCountyCount.toLocaleString()} species`;
+      DOM.tickStatTop.textContent = topRegionName;
+      DOM.tickStatTopCount.textContent = `${topRegionCount.toLocaleString()} species`;
+
+      if (isStateLevel) {
+        if (DOM.tickStatTotalDesc) DOM.tickStatTotalDesc.textContent = 'Across all states';
+        if (DOM.tickStatCountiesDesc) DOM.tickStatCountiesDesc.textContent = 'Unique states logged';
+      } else {
+        if (DOM.tickStatTotalDesc) DOM.tickStatTotalDesc.textContent = 'Across all subregions';
+        if (DOM.tickStatCountiesDesc) DOM.tickStatCountiesDesc.textContent = 'Unique counties logged';
+      }
+
+      // Dynamic Map Color Mode Validation
+      const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+      if (DOM.mapColorMode) {
+        const addedOption = DOM.mapColorMode.options[1]; // Timeframe Additions
+        if (addedOption) {
+          if (!isTimeframeActive) {
+            addedOption.disabled = true;
+            if (DOM.mapColorMode.value === 'added') {
+              DOM.mapColorMode.value = 'total';
+            }
+          } else {
+            addedOption.disabled = false;
+          }
+        }
+      }
+
+      // Filter milestones for chart & analyzer if county is focused
+      const activeMilestones = state.selectedMapCounty
+        ? state.tickMilestones.filter(m => m.county === state.selectedMapCounty)
+        : state.tickMilestones;
 
       // Render components
       renderSubregionsList(subregions);
       renderTickMap(subregions, maxSpeciesCount);
-      renderTickChart(state.tickMilestones);
+      renderTickChart(activeMilestones);
       renderTimeframeAdditions();
 
       // Update analyzer summary badge
-      const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
       if (isTimeframeActive && DOM.analyzerSummary) {
         const startTotal = state.tickDateStart
-          ? state.tickMilestones.filter(m => m.date < state.tickDateStart).length
+          ? activeMilestones.filter(m => m.date < state.tickDateStart).length
           : 0;
         const endTotal = state.tickDateEnd
-          ? state.tickMilestones.filter(m => m.date <= state.tickDateEnd).length
-          : state.tickMilestones.length;
-        const addedTotal = state.tickMilestones.filter(m => {
+          ? activeMilestones.filter(m => m.date <= state.tickDateEnd).length
+          : activeMilestones.length;
+        const addedTotal = activeMilestones.filter(m => {
           if (state.tickDateStart && m.date < state.tickDateStart) return false;
           if (state.tickDateEnd && m.date > state.tickDateEnd) return false;
           return true;
@@ -1453,15 +1565,45 @@
   }
 
   function renderSubregionsList(subregionsMap) {
+    const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+
+    // Update table headers dynamically with sort indicators and styling
+    const tableEl = DOM.subregionListBody.closest('table');
+    if (tableEl) {
+      const ths = tableEl.querySelectorAll('thead th');
+      const sortCols = ['name', 'state', 'speciesCount', 'startTotal', 'endTotal', 'added'];
+      
+      ths.forEach((th, idx) => {
+        const colType = sortCols[idx];
+        let baseText = '';
+        if (idx === 0) baseText = isStateLevel ? 'State' : 'County';
+        else if (idx === 1) baseText = isStateLevel ? 'Country' : 'State';
+        else if (idx === 2) baseText = 'Total Ticks';
+        else if (idx === 3) baseText = 'Timeframe Start';
+        else if (idx === 4) baseText = 'Timeframe End';
+        else if (idx === 5) baseText = 'Added';
+
+        // Add sort indicator icon
+        let icon = '';
+        if (state.tickSortColumn === colType) {
+          icon = state.tickSortDirection === 'asc' ? ' ▲' : ' ▼';
+        }
+        th.textContent = baseText + icon;
+        th.style.cursor = 'pointer';
+        th.style.userSelect = 'none';
+        th.setAttribute('data-sort', colType);
+      });
+    }
+
     if (!subregionsMap) {
       const centroids = computeTickMilestones();
       subregionsMap = new Map();
       for (const m of state.tickMilestones) {
-        const cKey = `${m.state}::${m.county}`;
+        const cKey = isStateLevel ? m.state : `${m.state}::${m.county}`;
         if (!subregionsMap.has(cKey)) {
           const centroid = centroids.get(cKey) || { lat: m.lat, lng: m.lng };
           subregionsMap.set(cKey, {
-            county: m.county,
+            county: isStateLevel ? '' : m.county,
             state: m.state,
             lat: centroid.lat,
             lng: centroid.lng,
@@ -1484,7 +1626,7 @@
     // Compute "start total" = species count at start of timeframe (ticks strictly before start date)
     const startTotalCounts = new Map();
     for (const m of state.tickMilestones) {
-      const cKey = `${m.state}::${m.county}`;
+      const cKey = isStateLevel ? m.state : `${m.state}::${m.county}`;
       if (!addedCounts.has(cKey)) {
         addedCounts.set(cKey, 0);
       }
@@ -1520,28 +1662,80 @@
     let filtered = items;
     if (state.tickSearchQuery) {
       filtered = items.filter(
-        item => item.county.toLowerCase().includes(state.tickSearchQuery) ||
-                item.state.toLowerCase().includes(state.tickSearchQuery)
+        item => {
+          const countyMatch = item.county ? item.county.toLowerCase().includes(state.tickSearchQuery) : false;
+          const stateMatch = item.state ? item.state.toLowerCase().includes(state.tickSearchQuery) : false;
+          return countyMatch || stateMatch;
+        }
       );
     }
 
-    filtered.sort((a, b) => b.speciesCount - a.speciesCount);
+    // Map items to enrich them with computed metrics for sorting
+    const itemsWithMetrics = filtered.map(item => {
+      const cKey = isStateLevel ? item.state : `${item.state}::${item.county}`;
+      const added = addedCounts.get(cKey) || 0;
+      const endTotalSet = endTotalCounts.get(cKey);
+      const endTotal = endTotalSet ? endTotalSet.size : item.speciesCount;
+      const startTotalSet = startTotalCounts.get(cKey);
+      const startTotal = startTotalSet ? startTotalSet.size : 0;
+      const name = isStateLevel ? cleanStateCode(item.state) : item.county;
+
+      return {
+        item,
+        name,
+        added,
+        endTotal,
+        startTotal
+      };
+    });
+
+    // Sort enriched items dynamically based on selected column
+    const col = state.tickSortColumn || 'speciesCount';
+    const dir = state.tickSortDirection || 'desc';
+
+    itemsWithMetrics.sort((a, b) => {
+      let valA, valB;
+      if (col === 'name') {
+        valA = a.name.toLowerCase();
+        valB = b.name.toLowerCase();
+      } else if (col === 'state') {
+        valA = isStateLevel ? 'US' : cleanStateCode(a.item.state).toLowerCase();
+        valB = isStateLevel ? 'US' : cleanStateCode(b.item.state).toLowerCase();
+      } else if (col === 'speciesCount') {
+        valA = a.item.speciesCount;
+        valB = b.item.speciesCount;
+      } else if (col === 'startTotal') {
+        valA = a.startTotal;
+        valB = b.startTotal;
+      } else if (col === 'endTotal') {
+        valA = a.endTotal;
+        valB = b.endTotal;
+      } else if (col === 'added') {
+        valA = a.added;
+        valB = b.added;
+      }
+
+      if (valA < valB) return dir === 'asc' ? -1 : 1;
+      if (valA > valB) return dir === 'asc' ? 1 : -1;
+      return 0;
+    });
 
     const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
     const fragment = document.createDocumentFragment();
-    for (const item of filtered) {
+    for (const enriched of itemsWithMetrics) {
+      const { item, name: cleanName, added: addedCount, endTotal, startTotal } = enriched;
       const tr = document.createElement('tr');
-      if (state.selectedMapCounty === item.county) {
+      if (!isStateLevel && state.selectedMapCounty === item.county) {
         tr.classList.add('is-selected');
       }
 
       const tdCounty = document.createElement('td');
-      tdCounty.textContent = item.county;
+      tdCounty.textContent = isStateLevel ? cleanStateCode(item.state) : item.county;
       tdCounty.style.fontWeight = '500';
       tr.appendChild(tdCounty);
 
       const tdState = document.createElement('td');
-      tdState.textContent = item.state;
+      tdState.textContent = isStateLevel ? 'US' : cleanStateCode(item.state);
       tr.appendChild(tdState);
 
       const tdTicks = document.createElement('td');
@@ -1552,14 +1746,7 @@
       tdTicks.textContent = item.speciesCount.toLocaleString();
       tr.appendChild(tdTicks);
 
-      const cKey = `${item.state}::${item.county}`;
-      const addedCount = addedCounts.get(cKey) || 0;
-      const endTotalSet = endTotalCounts.get(cKey);
-      const endTotal = endTotalSet ? endTotalSet.size : item.speciesCount;
-      const startTotalSet = startTotalCounts.get(cKey);
-      const startTotal = startTotalSet ? startTotalSet.size : 0;
-
-      // Timeframe Start column (ticks before start of timeframe)
+      // Timeframe Start column
       const tdStartTotal = document.createElement('td');
       tdStartTotal.className = 'date-cell';
       tdStartTotal.style.textAlign = 'right';
@@ -1573,7 +1760,7 @@
       }
       tr.appendChild(tdStartTotal);
 
-      // Timeframe End column (ticks at end of timeframe)
+      // Timeframe End column
       const tdEndTotal = document.createElement('td');
       tdEndTotal.className = 'date-cell';
       tdEndTotal.style.textAlign = 'right';
@@ -1601,7 +1788,12 @@
       tr.appendChild(tdAdded);
 
       tr.addEventListener('click', () => {
-        handleMapNodeClick(item.county);
+        if (isStateLevel) {
+          DOM.filterState.value = item.state;
+          DOM.filterState.dispatchEvent(new Event('change'));
+        } else {
+          handleMapNodeClick(item.county);
+        }
       });
 
       fragment.appendChild(tr);
@@ -1898,7 +2090,15 @@
       if (y > maxY) maxY = y;
     }
 
-    for (const feature of features) {
+    let boundsFeatures = features;
+    if (keyField === 'county' && state.selectedMapCounty) {
+      const selectedFeature = features.find(f => f.properties.name === state.selectedMapCounty);
+      if (selectedFeature) {
+        boundsFeatures = [selectedFeature];
+      }
+    }
+
+    for (const feature of boundsFeatures) {
       const geom = feature.geometry;
       if (!geom) continue;
       if (geom.type === 'Polygon') {
@@ -1918,13 +2118,25 @@
       }
     }
 
-    const w = maxX - minX;
-    const h = maxY - minY;
+    let w = maxX - minX;
+    let h = maxY - minY;
     if (w === 0 || h === 0) return;
+
+    // Apply 30% margin compromise if county focus is active
+    if (keyField === 'county' && state.selectedMapCounty) {
+      const cx = minX + w / 2;
+      const cy = minY + h / 2;
+      w = w * 1.30;
+      h = h * 1.30;
+      minX = cx - w / 2;
+      maxX = cx + w / 2;
+      minY = cy - h / 2;
+      maxY = cy + h / 2;
+    }
 
     const width = 500;
     const height = 400;
-    const padding = 20;
+    const padding = 10;
 
     const scale = Math.min((width - 2 * padding) / w, (height - 2 * padding) / h);
     const offsetX = (width - w * scale) / 2;
@@ -1982,10 +2194,12 @@
       // Determine active value based on colorMode
       const activeValue = colorMode === 'added' ? addedCount : totalCount;
 
+      const isLevel3 = (keyField === 'county' && state.selectedMapCounty);
+
       // Heatmap coloring: Standard yellow-to-red eBird scale
-      let fill = 'rgba(255, 255, 255, 0.03)';
-      let stroke = 'rgba(255, 255, 255, 0.08)';
-      let strokeWidth = '1px';
+      let fill = 'rgba(255, 255, 255, 0.09)';
+      let stroke = isLevel3 ? '#334155' : 'rgba(255, 255, 255, 0.22)';
+      let strokeWidth = isLevel3 ? '1px' : '0.7px';
 
       if (activeValue > 0) {
         const ratio = activeMax > 0 ? activeValue / activeMax : 0;
@@ -1993,8 +2207,8 @@
         const saturation = 100;
         const lightness = 65 - 17 * ratio;
         fill = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-        stroke = 'var(--color-accent)';
-        strokeWidth = '1.2px';
+        stroke = isLevel3 ? '#475569' : 'rgba(255, 255, 255, 0.32)';
+        strokeWidth = isLevel3 ? '1.2px' : '0.8px';
       }
 
       if (isSelected) {
@@ -2035,7 +2249,8 @@
       path.addEventListener('mousemove', positionMapTooltip);
       path.style.cursor = 'pointer';
       
-      path.addEventListener('click', () => {
+      path.addEventListener('click', (e) => {
+        e.stopPropagation();
         if (keyField === 'state') {
           const code = FIPS_TO_STATE[feature.id] || '';
           if (code) {
@@ -2097,14 +2312,43 @@
           const ptY = pt[1];
           const x = offsetX + (ptX - minX) * scale;
           const y = isPreProjected ? (offsetY + (ptY - minY) * scale) : (offsetY + (maxY - ptY) * scale);
-          
-          const labelWidth = labelText.length * 5.5 + 4;
-          const labelHeight = 11;
-          
+
+          let isLevel3 = (keyField === 'county' && state.selectedMapCounty);
+          let isLevel2 = (keyField === 'county' && !state.selectedMapCounty) || (keyField === 'state' && state.filterState);
+          let isLevel1 = (keyField === 'state' && !state.filterState);
+
+          let fSize = '8px';
+          let subSize = '6px';
+          let dyVal = '8';
+
+          if (isLevel3) {
+            fSize = '15px';
+            subSize = '11px';
+            dyVal = '14';
+          } else if (isLevel2) {
+            fSize = '8.5px';
+            subSize = '6.5px';
+            dyVal = '8.5';
+          } else {
+            fSize = '8px';
+            subSize = '6px';
+            dyVal = '8';
+          }
+
+          const isTwoLines = (colorMode === 'total' && isTimeframeActive && addedCount > 0);
+
+          const labelWidth = isTwoLines
+            ? Math.max(endTotal.toString().length, `(+${addedCount})`.length) * (isLevel3 ? 9 : 5.5) + 4
+            : labelText.length * (isLevel3 ? 9 : 5.5) + 4;
+            
+          const labelHeight = isTwoLines
+            ? (isLevel3 ? 30 : 18)
+            : (isLevel3 ? 18 : 11);
+
           let finalY = y;
           let shifted = false;
-          
-          const shifts = [0, -11, 11, -22, 22, -33, 33];
+          const shiftStep = isLevel3 ? 12 : 6;
+          const shifts = [0, -shiftStep, shiftStep];
           for (const shift of shifts) {
             const testY = y + shift;
             const testBox = {
@@ -2153,17 +2397,41 @@
             fragmentLabels.appendChild(line);
           }
           
+          let drawY = finalY + (isLevel3 ? 5 : 3);
+          if (isTwoLines) {
+            drawY -= parseFloat(dyVal) / 2;
+          }
+
           const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           text.setAttribute('class', 'map-label');
           text.setAttribute('x', x);
-          text.setAttribute('y', finalY + 3);
+          text.setAttribute('y', drawY);
           text.setAttribute('text-anchor', 'middle');
           text.style.pointerEvents = 'none';
-          text.style.fontSize = '9px';
+          text.style.fontSize = fSize;
+          text.style.fontFamily = 'Inter, system-ui, -apple-system, sans-serif';
           text.style.fontWeight = 'bold';
           text.style.fill = '#fff';
           text.style.textShadow = '0 1px 3px rgba(0,0,0,0.9)';
-          text.textContent = labelText;
+
+          if (isTwoLines) {
+            // Line 1: End Total
+            const tspanTotal = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            tspanTotal.textContent = endTotal.toString();
+            text.appendChild(tspanTotal);
+
+            // Line 2: Added Gains
+            const tspanAdded = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            tspanAdded.textContent = `(+${addedCount})`;
+            tspanAdded.setAttribute('x', x); // Keep centered horizontally
+            tspanAdded.setAttribute('dy', dyVal); // Shift down
+            tspanAdded.setAttribute('font-size', subSize);
+            tspanAdded.setAttribute('fill', '#14b8a6'); // Teal green for gains
+            text.appendChild(tspanAdded);
+          } else {
+            text.textContent = labelText;
+          }
+
           fragmentLabels.appendChild(text);
         }
       }
@@ -2196,7 +2464,7 @@
 
     const width = 500;
     const height = 400;
-    const padding = 50;
+    const padding = 25;
 
     function project(lat, lng) {
       let x, y;
@@ -2285,8 +2553,8 @@
       circle.setAttribute('cy', node.y);
       circle.setAttribute('r', '11');
 
-      let fill = 'rgba(255, 255, 255, 0.03)';
-      let stroke = 'rgba(255, 255, 255, 0.08)';
+      let fill = 'rgba(255, 255, 255, 0.09)';
+      let stroke = 'rgba(255, 255, 255, 0.22)';
 
       if (activeValue > 0) {
         const ratio = activeMax > 0 ? activeValue / activeMax : 0;
@@ -2294,7 +2562,7 @@
         const saturation = 100;
         const lightness = 65 - 17 * ratio;
         fill = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-        stroke = 'var(--color-accent)';
+        stroke = '#475569';
       }
       circle.setAttribute('fill', fill);
       circle.setAttribute('stroke', stroke);
@@ -2312,8 +2580,10 @@
       });
       g.addEventListener('mouseleave', hideMapTooltip);
       g.addEventListener('mousemove', positionMapTooltip);
-      g.style.cursor = 'pointer';
-      g.addEventListener('click', () => handleMapNodeClick(node.county));
+      g.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleMapNodeClick(node.county);
+      });
 
       fragmentNodes.appendChild(g);
 
@@ -2336,17 +2606,46 @@
       }
 
       if (labelText) {
+        const isTwoLines = (colorMode === 'total' && isTimeframeActive && addedCount > 0);
+        let fSize = '8.5px';
+        let subSize = '6.5px';
+        let dyVal = '8.5';
+
+        let drawY = node.y + 3;
+        if (isTwoLines) {
+          drawY -= parseFloat(dyVal) / 2;
+        }
+
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         text.setAttribute('class', 'map-label');
         text.setAttribute('x', node.x);
-        text.setAttribute('y', node.y + 3);
+        text.setAttribute('y', drawY);
         text.setAttribute('text-anchor', 'middle');
         text.style.pointerEvents = 'none';
-        text.style.fontSize = '8px';
+        text.style.fontSize = fSize;
+        text.style.fontFamily = 'Inter, system-ui, -apple-system, sans-serif';
         text.style.fontWeight = 'bold';
         text.style.fill = '#fff';
         text.style.textShadow = '0 1px 3px rgba(0,0,0,0.9)';
-        text.textContent = labelText;
+
+        if (isTwoLines) {
+          // Line 1: End Total
+          const tspanTotal = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+          tspanTotal.textContent = endTotal.toString();
+          text.appendChild(tspanTotal);
+
+          // Line 2: Added Gains
+          const tspanAdded = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+          tspanAdded.textContent = `(+${addedCount})`;
+          tspanAdded.setAttribute('x', node.x); // Keep centered horizontally
+          tspanAdded.setAttribute('dy', dyVal); // Shift down
+          tspanAdded.setAttribute('font-size', subSize);
+          tspanAdded.setAttribute('fill', '#14b8a6'); // Teal green for gains
+          text.appendChild(tspanAdded);
+        } else {
+          text.textContent = labelText;
+        }
+
         fragmentLabels.appendChild(text);
       }
     }
@@ -2358,12 +2657,26 @@
   function renderTickMap(subregionsMap, maxSpeciesCount) {
     const colorMode = DOM.mapColorMode ? DOM.mapColorMode.value : 'total';
     const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+    const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+
+    // Update zoom-out button visibility and text
+    if (DOM.btnMapZoomOut) {
+      if (state.selectedMapCounty) {
+        DOM.btnMapZoomOut.classList.remove('is-hidden');
+        DOM.btnMapZoomOut.textContent = `⬅️ Zoom Out to ${cleanStateCode(state.filterState)}`;
+      } else if (state.filterState) {
+        DOM.btnMapZoomOut.classList.remove('is-hidden');
+        DOM.btnMapZoomOut.textContent = '⬅️ Zoom Out to US';
+      } else {
+        DOM.btnMapZoomOut.classList.add('is-hidden');
+      }
+    }
 
     // Compute timeframe additions count for all subregions
     const addedCounts = new Map();
     const endTotalCounts = new Map();
     for (const m of state.tickMilestones) {
-      const cKey = `${m.state}::${m.county}`;
+      const cKey = isStateLevel ? m.state : `${m.state}::${m.county}`;
       if (!addedCounts.has(cKey)) {
         addedCounts.set(cKey, 0);
       }
@@ -2406,13 +2719,21 @@
         } else {
           const fipsPrefix = STATE_TO_FIPS[cleanedState];
           if (fipsPrefix) {
-            const countyFeatures = topojson.feature(window.US_ATLAS, window.US_ATLAS.objects.counties).features.filter(
-              f => f.id.startsWith(fipsPrefix)
-            );
-            
-            if (countyFeatures.length > 0) {
-              renderVectorMap(countyFeatures, 'county', subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, true, endTotalCounts);
-              return;
+            if (isStateLevel) {
+              const stateFeatures = topojson.feature(window.US_ATLAS, window.US_ATLAS.objects.states).features;
+              const stateFeature = stateFeatures.find(f => f.id === fipsPrefix);
+              if (stateFeature) {
+                renderVectorMap([stateFeature], 'state', subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, true, endTotalCounts);
+                return;
+              }
+            } else {
+              const countyFeatures = topojson.feature(window.US_ATLAS, window.US_ATLAS.objects.counties).features.filter(
+                f => f.id.startsWith(fipsPrefix)
+              );
+              if (countyFeatures.length > 0) {
+                renderVectorMap(countyFeatures, 'county', subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, true, endTotalCounts);
+                return;
+              }
             }
           }
         }
@@ -2448,23 +2769,25 @@
       });
     }
 
-    // Build datasets - main line always shown
+    // If timeframe is active, we highlight that segment in red and fade the historical trend to grey
+    const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+
+    // Build datasets - main line always shown in premium green/teal
     const datasets = [{
       label: 'Cumulative County Ticks',
       data: chartPoints,
       borderColor: 'rgb(20, 184, 166)',
       backgroundColor: 'rgba(20, 184, 166, 0.05)',
-      borderWidth: 2.5,
+      borderWidth: 2,
       pointRadius: 0,
       pointHoverRadius: 4,
       pointHoverBackgroundColor: '#fff',
       pointHoverBorderColor: 'rgb(20, 184, 166)',
       tension: 0.15,
-      fill: true
+      fill: true,
+      order: 2 // Draw first (underneath)
     }];
 
-    // If timeframe is active, add highlighted segment dataset
-    const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
     if (isTimeframeActive) {
       const highlightPoints = [];
       let runningCount = 0;
@@ -2483,15 +2806,16 @@
       datasets.push({
         label: 'Timeframe Window',
         data: highlightPoints,
-        borderColor: 'rgba(239, 68, 68, 0.9)',
-        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+        borderColor: 'rgba(239, 68, 68, 1.0)',
+        backgroundColor: 'rgba(239, 68, 68, 0.15)',
         borderWidth: 3,
         pointRadius: 0,
         pointHoverRadius: 4,
         pointHoverBackgroundColor: '#fff',
         pointHoverBorderColor: 'rgb(239, 68, 68)',
         tension: 0.15,
-        fill: true
+        fill: true,
+        order: 1 // Draw last (on top)
       });
     }
 
@@ -2502,6 +2826,10 @@
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
         plugins: {
           legend: { display: false },
           tooltip: {
@@ -2568,6 +2896,7 @@
     DOM.timelineAdditionsList.innerHTML = '';
     
     const filtered = state.tickMilestones.filter(m => {
+      if (state.selectedMapCounty && m.county !== state.selectedMapCounty) return false;
       if (state.tickDateStart && m.date < state.tickDateStart) return false;
       if (state.tickDateEnd && m.date > state.tickDateEnd) return false;
       return true;
@@ -2648,7 +2977,7 @@
       }
     });
 
-    renderSubregionsList();
+    renderTickExplorer();
 
     if (state.selectedMapCounty) {
       const rows = DOM.subregionListBody.querySelectorAll('tr');
@@ -2775,9 +3104,11 @@
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      document.body.appendChild(a);
       a.href = url;
       a.download = `ebird-tracker-state-${formatDateISO(new Date())}.json`;
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showToast('Dashboard state exported successfully!', 'success');
     } catch (err) {
@@ -3110,6 +3441,7 @@
     DOM.filterState.addEventListener('change', (e) => {
       state.filterState = e.target.value;
       state.filterCounty = '';
+      state.selectedMapCounty = '';
       populateCountyFilter();
       DB.setSetting('filterState', state.filterState);
       DB.setSetting('filterCounty', '');
@@ -3118,6 +3450,7 @@
 
     DOM.filterCounty.addEventListener('change', (e) => {
       state.filterCounty = e.target.value;
+      state.selectedMapCounty = '';
       DB.setSetting('filterCounty', state.filterCounty);
       if (state.isDataLoaded) refreshGrid();
     });
@@ -3215,11 +3548,88 @@
       renderTickExplorer();
     });
 
+    if (DOM.tickLevel) {
+      DOM.tickLevel.addEventListener('change', () => {
+        DB.setSetting('tickLevel', DOM.tickLevel.value);
+        if (DOM.tickLevel.value === 'state') {
+          state.selectedMapCounty = '';
+          if (DOM.filterCounty) {
+            DOM.filterCounty.value = '';
+            DOM.filterCounty.disabled = true;
+            state.filterCounty = '';
+            DB.setSetting('filterCounty', '');
+          }
+        } else {
+          if (DOM.filterCounty) {
+            DOM.filterCounty.disabled = false;
+          }
+        }
+        renderTickExplorer();
+      });
+    }
+
+    if (DOM.toggleExportInfographic) {
+      DOM.toggleExportInfographic.addEventListener('change', () => {
+        DB.setSetting('toggleExportInfographic', DOM.toggleExportInfographic.checked);
+      });
+    }
+
+    // Zoom Out floating button click
+    if (DOM.btnMapZoomOut) {
+      DOM.btnMapZoomOut.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (state.selectedMapCounty) {
+          state.selectedMapCounty = '';
+          renderTickExplorer();
+        } else if (state.filterState) {
+          state.filterState = '';
+          DOM.filterState.value = '';
+          DOM.filterState.dispatchEvent(new Event('change'));
+        }
+      });
+    }
+
+    // Map background empty space click to zoom out
+    if (DOM.tickSvgMap) {
+      DOM.tickSvgMap.addEventListener('click', (e) => {
+        // Only trigger if clicking directly on the SVG or on grid lines/lines
+        if (e.target === DOM.tickSvgMap || e.target.classList.contains('map-grid-lines') || e.target.tagName === 'line') {
+          if (state.selectedMapCounty) {
+            state.selectedMapCounty = '';
+            renderTickExplorer();
+          } else if (state.filterState) {
+            state.filterState = '';
+            DOM.filterState.value = '';
+            DOM.filterState.dispatchEvent(new Event('change'));
+          }
+        }
+      });
+    }
+
     // Subregions search filter
     DOM.tickSearchSubregions.addEventListener('input', () => {
       state.tickSearchQuery = DOM.tickSearchSubregions.value.trim().toLowerCase();
       renderSubregionsList();
     });
+
+    // Subregions table header sorting
+    const subregionsTable = DOM.subregionListBody ? DOM.subregionListBody.closest('table') : null;
+    if (subregionsTable) {
+      const ths = subregionsTable.querySelectorAll('thead th');
+      ths.forEach((th) => {
+        th.addEventListener('click', () => {
+          const colType = th.getAttribute('data-sort');
+          if (!colType) return;
+          if (state.tickSortColumn === colType) {
+            state.tickSortDirection = state.tickSortDirection === 'asc' ? 'desc' : 'asc';
+          } else {
+            state.tickSortColumn = colType;
+            state.tickSortDirection = (colType === 'name' || colType === 'state') ? 'asc' : 'desc';
+          }
+          renderSubregionsList();
+        });
+      });
+    }
 
     // Quick-pick date presets
     document.querySelectorAll('.quick-pick-btn').forEach(btn => {
@@ -3270,16 +3680,89 @@
       });
     });
 
-    // Download map as PNG
+    // Download map as PNG with rich metadata
     if (DOM.btnDownloadMap) {
       DOM.btnDownloadMap.addEventListener('click', () => {
         const svgEl = DOM.tickSvgMap;
         if (!svgEl) return;
 
-        const svgData = new XMLSerializer().serializeToString(svgEl);
+        const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+
+        // Gather geography context
+        let geography = 'UNITED STATES';
+        if (state.filterState) {
+          const cleanState = cleanStateCode(state.filterState);
+          geography = cleanState;
+          if (!isStateLevel && state.selectedMapCounty) {
+            geography = `${state.selectedMapCounty} County, ${cleanState}`;
+          }
+        }
+        geography = geography.toUpperCase();
+
+        let timeframe = 'All-Time';
+        let beforeCount = 0;
+        let addedCount = 0;
+        let afterCount = 0;
+        const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+
+        // Filter milestones to geography context
+        const geoMilestones = !isStateLevel && state.selectedMapCounty
+          ? state.tickMilestones.filter(m => m.county === state.selectedMapCounty)
+          : (state.filterState
+             ? state.tickMilestones.filter(m => {
+                 const cleanState = cleanStateCode(state.filterState);
+                 return m.state === state.filterState || m.state.endsWith(cleanState);
+               })
+             : state.tickMilestones);
+
+        if (isTimeframeActive) {
+          let startStr = 'Start';
+          if (state.tickDateStart) {
+            const parts = state.tickDateStart.split('-');
+            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+            startStr = formatDateLabel(dateObj);
+          }
+          let endStr = 'Present';
+          if (state.tickDateEnd) {
+            const parts = state.tickDateEnd.split('-');
+            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+            endStr = formatDateLabel(dateObj);
+          }
+          timeframe = `${startStr} to ${endStr}`;
+
+          beforeCount = state.tickDateStart
+            ? geoMilestones.filter(m => m.date < state.tickDateStart).length
+            : 0;
+          afterCount = state.tickDateEnd
+            ? geoMilestones.filter(m => m.date <= state.tickDateEnd).length
+            : geoMilestones.length;
+          addedCount = geoMilestones.filter(m => {
+            if (state.tickDateStart && m.date < state.tickDateStart) return false;
+            if (state.tickDateEnd && m.date > state.tickDateEnd) return false;
+            return true;
+          }).length;
+        }
+
+        const dataAsOf = DOM.statDateAsOf ? DOM.statDateAsOf.textContent : '—';
+        const maxVal = DOM.mapLegendMax ? DOM.mapLegendMax.textContent : 'Max';
+
+        let speciesCountText = '';
+        if (!isStateLevel && state.selectedMapCounty) {
+          speciesCountText = `${geoMilestones.length.toLocaleString()} Species Ticked`;
+        } else {
+          speciesCountText = `${geoMilestones.length.toLocaleString()} Total Ticks`;
+        }
+
+        const colorMode = DOM.mapColorMode ? DOM.mapColorMode.value : 'total';
+        const modeTitle = colorMode === 'added' ? 'TIMEFRAME ADDITIONS' : 'TOTAL LIFETIME TICKS';
+
+        let svgData = new XMLSerializer().serializeToString(svgEl);
+        // Resolve CSS variables inside serialized SVG for standalone image rendering
+        svgData = svgData.replace(/var\(--color-accent\)/g, '#14b8a6');
+        svgData = svgData.replace(/var\(--color-border-subtle\)/g, 'rgba(255, 255, 255, 0.08)');
         const canvas = document.createElement('canvas');
-        canvas.width = 1000;
-        canvas.height = 800;
+        canvas.width = 2000;
+        canvas.height = 1600;
         const ctx2 = canvas.getContext('2d');
 
         // Draw dark background
@@ -3291,17 +3774,181 @@
         const url = URL.createObjectURL(svgBlob);
 
         img.onload = () => {
-          ctx2.drawImage(img, 0, 0, canvas.width, canvas.height);
-          URL.revokeObjectURL(url);
+          try {
+            const exportInfographic = DOM.toggleExportInfographic ? DOM.toggleExportInfographic.checked : true;
 
-          const link = document.createElement('a');
-          link.download = 'birding-tracker-map.png';
-          link.href = canvas.toDataURL('image/png');
-          link.click();
-          showToast('Map image downloaded!', 'success');
+            if (exportInfographic) {
+              // Draw map SVG much larger (occupying 1800x1430 starting at Y = 130)
+              ctx2.drawImage(img, 100, 130, 1800, 1430);
+              URL.revokeObjectURL(url);
+
+              // Draw Metadata Header (Left-aligned)
+              ctx2.fillStyle = '#38bdf8';
+              ctx2.font = '600 22px monospace';
+              ctx2.textAlign = 'left';
+              ctx2.fillText(`BIRDING TRACKER // ${modeTitle}`, 100, 50);
+
+              ctx2.fillStyle = '#ffffff';
+              ctx2.font = '700 48px system-ui, -apple-system, sans-serif';
+              ctx2.fillText(geography, 100, 110);
+
+              // Draw Metadata Header (Right-aligned in top right)
+              ctx2.textAlign = 'right';
+              ctx2.fillStyle = '#38bdf8';
+              ctx2.font = '700 36px system-ui, -apple-system, sans-serif';
+              ctx2.fillText(speciesCountText, 1900, 75);
+
+              ctx2.fillStyle = '#94a3b8';
+              ctx2.font = '600 22px system-ui, -apple-system, sans-serif';
+              ctx2.fillText(`Data as of: ${dataAsOf}`, 1900, 115);
+
+              // Horizontal divider line
+              ctx2.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+              ctx2.lineWidth = 2;
+              ctx2.beginPath();
+              ctx2.moveTo(100, 150);
+              ctx2.lineTo(1900, 150);
+              ctx2.stroke();
+
+              // CONDITIONAL: Timeframe Box on the right of the map (only drawn if active)
+              if (isTimeframeActive) {
+                const boxX = 1400;
+                const boxY = 180;
+                const boxW = 500;
+                const boxH = 320;
+
+                // Draw glassmorphic Timeframe box
+                ctx2.fillStyle = '#0f1729';
+                ctx2.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                ctx2.lineWidth = 2;
+                ctx2.fillRect(boxX, boxY, boxW, boxH);
+                ctx2.strokeRect(boxX, boxY, boxW, boxH);
+
+                // Timeframe text drawings
+                ctx2.textAlign = 'left';
+                ctx2.fillStyle = '#94a3b8';
+                ctx2.font = '600 18px system-ui, -apple-system, sans-serif';
+                ctx2.fillText('TIMEFRAME ANALYSIS', boxX + 30, boxY + 45);
+
+                ctx2.fillStyle = '#ffffff';
+                ctx2.font = '700 24px system-ui, -apple-system, sans-serif';
+                ctx2.fillText(timeframe, boxX + 30, boxY + 85);
+
+                // Comma-formatted values aligned left/right
+                ctx2.font = '600 22px system-ui, -apple-system, sans-serif';
+                
+                // Before
+                ctx2.fillStyle = '#94a3b8';
+                ctx2.textAlign = 'left';
+                ctx2.fillText('Before ticks:', boxX + 30, boxY + 145);
+                ctx2.fillStyle = '#ffffff';
+                ctx2.textAlign = 'right';
+                ctx2.fillText(beforeCount.toLocaleString(), boxX + 470, boxY + 145);
+
+                // Gained
+                ctx2.fillStyle = '#14b8a6';
+                ctx2.textAlign = 'left';
+                ctx2.fillText('Ticks gained:', boxX + 30, boxY + 200);
+                ctx2.textAlign = 'right';
+                ctx2.fillText(`+${addedCount.toLocaleString()}`, boxX + 470, boxY + 200);
+
+                // After
+                ctx2.fillStyle = '#a78bfa';
+                ctx2.textAlign = 'left';
+                ctx2.fillText('After ticks:', boxX + 30, boxY + 255);
+                ctx2.fillStyle = '#ffffff';
+                ctx2.textAlign = 'right';
+                ctx2.fillText(afterCount.toLocaleString(), boxX + 470, boxY + 255);
+              }
+
+              // Legend (Drawn at the far bottom-left, completely off the map bounding area)
+              ctx2.textAlign = 'left';
+              ctx2.fillStyle = '#94a3b8';
+              ctx2.font = '600 18px system-ui, -apple-system, sans-serif';
+              ctx2.fillText('HEATMAP SCALE', 100, 1490);
+
+              // Draw gradient bar
+              const grad = ctx2.createLinearGradient(100, 0, 420, 0);
+              grad.addColorStop(0, 'hsl(55, 100%, 65%)');
+              grad.addColorStop(0.5, 'hsl(28, 100%, 55%)');
+              grad.addColorStop(1, 'hsl(0, 100%, 48%)');
+              ctx2.fillStyle = grad;
+              ctx2.fillRect(100, 1510, 320, 16);
+
+              // Draw legend labels
+              ctx2.fillStyle = '#94a3b8';
+              ctx2.font = '700 20px system-ui, -apple-system, sans-serif';
+              ctx2.textAlign = 'right';
+              ctx2.fillText('0', 80, 1525);
+              ctx2.textAlign = 'left';
+              ctx2.fillText(maxVal, 435, 1525);
+            } else {
+              // Draw plain map centered and filling almost the entire canvas
+              ctx2.drawImage(img, 60, 48, 1880, 1504);
+              URL.revokeObjectURL(url);
+            }
+
+            // Export trigger
+            const link = document.createElement('a');
+            document.body.appendChild(link);
+            link.download = constructDescriptiveFilename('png');
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            document.body.removeChild(link);
+            showToast('Map image downloaded!', 'success');
+          } catch (securityError) {
+            console.warn('Canvas export tainted or restricted, falling back to SVG download:', securityError);
+            triggerDirectSvgDownload(svgData);
+          }
         };
+ 
+        img.onerror = (err) => {
+          console.warn('Failed to load SVG into image, falling back to direct SVG download:', err);
+          triggerDirectSvgDownload(svgData);
+        };
+ 
         img.src = url;
       });
+    }
+ 
+    function constructDescriptiveFilename(extension) {
+      const levelStr = DOM.tickLevel && DOM.tickLevel.value === 'state' ? 'state-level' : 'county-level';
+      
+      let geoStr = 'us';
+      if (state.filterState) {
+        const cleanState = cleanStateCode(state.filterState).toLowerCase();
+        geoStr = cleanState;
+        const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+        if (!isStateLevel && state.selectedMapCounty) {
+          const cleanCounty = state.selectedMapCounty.toLowerCase().replace(/[^a-z0-9]/g, '-');
+          geoStr = `${cleanState}-${cleanCounty}-county`;
+        }
+      }
+
+      const colorMode = DOM.mapColorMode ? DOM.mapColorMode.value : 'total';
+      const modeStr = colorMode === 'added' ? 'timeframe-additions' : 'lifetime-totals';
+
+      let timeframeStr = 'all-time';
+      if (state.tickDateStart || state.tickDateEnd) {
+        const startVal = state.tickDateStart ? state.tickDateStart : 'start';
+        const endVal = state.tickDateEnd ? state.tickDateEnd : 'present';
+        timeframeStr = `${startVal}_to_${endVal}`;
+      }
+
+      const exportInfographic = DOM.toggleExportInfographic ? DOM.toggleExportInfographic.checked : true;
+      const suffixStr = exportInfographic ? 'infographic' : 'plain';
+
+      return `birding-tracker-${levelStr}-${geoStr}-${modeStr}-${timeframeStr}-${suffixStr}.${extension}`;
+    }
+
+    function triggerDirectSvgDownload(svgData) {
+      const link = document.createElement('a');
+      document.body.appendChild(link);
+      link.download = constructDescriptiveFilename('svg');
+      link.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Browser security restricted PNG; downloaded SVG map instead!', 'warning');
     }
 
     // Download table as CSV
@@ -3314,7 +3961,8 @@
         }
 
         const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
-        let headers = ['County', 'State', 'Total Ticks'];
+        const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+        let headers = isStateLevel ? ['State', 'Country', 'Total Ticks'] : ['County', 'State', 'Total Ticks'];
         if (isTimeframeActive) {
           headers.push('Timeframe Start', 'Timeframe End', 'Added');
         }
@@ -3333,9 +3981,11 @@
 
         const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8' });
         const link = document.createElement('a');
+        document.body.appendChild(link);
         link.download = 'birding-tracker-subregions.csv';
         link.href = URL.createObjectURL(blob);
         link.click();
+        document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
         showToast('CSV exported!', 'success');
       });
