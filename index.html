@@ -349,18 +349,15 @@
                 <table class="subregion-list-table">
                   <thead>
                     <tr class="subregion-group-row">
-                      <th colspan="2"></th>
-                      <th style="text-align: right;"></th>
-                      <th colspan="2" class="subregion-group-label" style="text-align: center;">Timeframe</th>
-                      <th></th>
+                      <th rowspan="2" class="col-county th-sortable" data-sort="name">County</th>
+                      <th rowspan="2" class="col-state th-sortable" data-sort="state">State</th>
+                      <th rowspan="2" class="col-ticks th-sortable" style="text-align: right;" data-sort="speciesCount">Total Ticks</th>
+                      <th colspan="3" class="subregion-group-label" style="text-align: center;">Timeframe</th>
                     </tr>
-                    <tr>
-                      <th>County</th>
-                      <th class="col-state">State</th>
-                      <th style="text-align: right;"><span class="label-long">Total Ticks</span><span class="label-short">Ticks</span></th>
-                      <th style="text-align: right;"><span class="label-long">Start</span><span class="label-short">Start</span></th>
-                      <th style="text-align: right;"><span class="label-long">End</span><span class="label-short">End</span></th>
-                      <th style="text-align: right;"><span class="label-long">Added</span><span class="label-short">+</span></th>
+                    <tr class="subregion-detail-row">
+                      <th class="th-sortable" style="text-align: right;" data-sort="startTotal">Start</th>
+                      <th class="th-sortable" style="text-align: right;" data-sort="endTotal">End</th>
+                      <th class="th-sortable" style="text-align: right;" data-sort="added">Added</th>
                     </tr>
                   </thead>
                   <tbody id="subregion-list-body">

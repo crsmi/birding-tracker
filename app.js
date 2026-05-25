@@ -1583,7 +1583,7 @@
     // Update table headers dynamically with sort indicators and styling
     const tableEl = DOM.subregionListBody.closest('table');
     if (tableEl) {
-      const ths = tableEl.querySelectorAll('thead th');
+      const ths = tableEl.querySelectorAll('thead th.th-sortable');
       const sortCols = ['name', 'state', 'speciesCount', 'startTotal', 'endTotal', 'added'];
       
       ths.forEach((th, idx) => {
@@ -1592,8 +1592,8 @@
         if (idx === 0) baseText = isStateLevel ? 'State' : 'County';
         else if (idx === 1) baseText = isStateLevel ? 'Country' : 'State';
         else if (idx === 2) baseText = 'Total Ticks';
-        else if (idx === 3) baseText = 'Timeframe Start';
-        else if (idx === 4) baseText = 'Timeframe End';
+        else if (idx === 3) baseText = 'Start';
+        else if (idx === 4) baseText = 'End';
         else if (idx === 5) baseText = 'Added';
 
         // Add sort indicator icon
@@ -3682,7 +3682,7 @@
     // Subregions table header sorting
     const subregionsTable = DOM.subregionListBody ? DOM.subregionListBody.closest('table') : null;
     if (subregionsTable) {
-      const ths = subregionsTable.querySelectorAll('thead th');
+      const ths = subregionsTable.querySelectorAll('thead th.th-sortable');
       ths.forEach((th) => {
         th.addEventListener('click', () => {
           const colType = th.getAttribute('data-sort');
