@@ -25,9 +25,11 @@
     targetYear: new Date().getFullYear(),
     simDate: new Date(),
     searchQuery: '',
-    aggregateSubspecies: false,
+    aggregateSubspecies: true,
+    showTrueSpeciesOnly: true,
     targetsOnly: false,
     pastDueOnly: false,
+    yearFilters: {},         // year -> 'all'|'seen'|'unseen'
     sortColumn: 'taxonomicOrder',
     sortDirection: 'asc',
     isDataLoaded: false,
@@ -53,6 +55,7 @@
     filterSimDate: $('filter-sim-date'),
     filterSearch: $('filter-search'),
     toggleAggregate: $('toggle-aggregate'),
+    toggleTrueSpecies: $('toggle-true-species'),
     toggleTargetsOnly: $('toggle-targets-only'),
     togglePastDueOnly: $('toggle-past-due-only'),
     statsBar: $('stats-bar'),
@@ -117,6 +120,26 @@
   function stripSubspecies(name) {
     const idx = name.indexOf(' (');
     return idx === -1 ? name : name.substring(0, idx);
+  }
+
+  /** Check if a species name is a true species (excluding spuhs, slashes, hybrids, domestic). */
+  function isTrueSpecies(commonName, scientificName) {
+    const c = (commonName || '').toLowerCase();
+    const s = (scientificName || '').toLowerCase();
+
+    // Slashes
+    if (c.includes('/') || s.includes('/')) return false;
+
+    // Spuhs (ends with ' sp.' or ' sp' or contains ' sp.')
+    if (c.includes(' sp.') || c.endsWith(' sp') || s.includes(' sp.') || s.endsWith(' sp')) return false;
+
+    // Hybrids (contains ' x ' with spaces, or 'hybrid')
+    if (c.includes(' x ') || s.includes(' x ') || c.includes('hybrid') || s.includes('hybrid')) return false;
+
+    // Domestic
+    if (c.includes('(domestic') || c.includes('domestic type') || s.includes('domestic')) return false;
+
+    return true;
   }
 
   /** Debounce utility. */
@@ -403,6 +426,12 @@
       { common: 'Canada Goose', scientific: 'Branta canadensis', order: 504, resident: true },
       { common: 'Sandhill Crane', scientific: 'Antigone canadensis', order: 505, earliest: 65, latest: 320 },
       { common: 'Killdeer', scientific: 'Charadrius vociferus', order: 506, earliest: 60, latest: 310 },
+
+      // Non-true species (spuhs, slashes, hybrids, domestic)
+      { common: 'gull sp.', scientific: 'Laridae sp.', order: 900, resident: true },
+      { common: "Cooper's/Sharp-shinned Hawk", scientific: 'Accipiter cooperii/striatus', order: 901, earliest: 50, latest: 320 },
+      { common: 'Mallard x American Black Duck hybrid', scientific: 'Anas platyrhynchos x rubripes', order: 902, resident: true },
+      { common: 'Mallard (Domestic type)', scientific: 'Anas platyrhynchos (Domestic type)', order: 903, resident: true },
     ];
 
     const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
@@ -526,6 +555,17 @@
       if (savedState) { state.filterState = savedState; DOM.filterState.value = savedState; }
       if (savedCounty) { state.filterCounty = savedCounty; DOM.filterCounty.value = savedCounty; }
 
+      const savedAggregate = await DB.getSetting('aggregateSubspecies');
+      const savedTrueSpecies = await DB.getSetting('showTrueSpeciesOnly');
+      if (savedAggregate !== null) {
+        state.aggregateSubspecies = savedAggregate;
+        DOM.toggleAggregate.checked = savedAggregate;
+      }
+      if (savedTrueSpecies !== null) {
+        state.showTrueSpeciesOnly = savedTrueSpecies;
+        DOM.toggleTrueSpecies.checked = savedTrueSpecies;
+      }
+
       const totalRecords = await DB.countObservations();
       DOM.statTotalRecords.textContent = totalRecords.toLocaleString();
       state.isDataLoaded = totalRecords > 0;
@@ -632,6 +672,10 @@
     const speciesMap = new Map();
 
     for (const obs of state.observations) {
+      if (state.showTrueSpeciesOnly && !isTrueSpecies(obs.commonName, obs.scientificName)) {
+        continue;
+      }
+
       let displayName = obs.commonName;
       if (state.aggregateSubspecies) {
         displayName = stripSubspecies(displayName);
@@ -749,6 +793,16 @@
 
     let filtered = results;
 
+    // Apply year column filters
+    for (const [yearStr, filterVal] of Object.entries(state.yearFilters)) {
+      const yr = parseInt(yearStr, 10);
+      if (filterVal === 'seen') {
+        filtered = filtered.filter(sp => sp.yoyChecks[yr] === true);
+      } else if (filterVal === 'unseen') {
+        filtered = filtered.filter(sp => sp.yoyChecks[yr] === false);
+      }
+    }
+
     if (state.searchQuery) {
       const q = state.searchQuery.toLowerCase();
       filtered = filtered.filter(sp =>
@@ -808,7 +862,20 @@
     const headerCols = [
       { key: 'target', label: '🎯', sortable: false },
       { key: 'commonName', label: 'Species', sortable: true },
-      ...yearsToShow.map(y => ({ key: 'year-' + y, label: String(y), sortable: false })),
+      ...yearsToShow.map(y => {
+        const filterVal = state.yearFilters[y] || 'all';
+        let suffix = '';
+        if (filterVal === 'seen') suffix = ' ✅';
+        else if (filterVal === 'unseen') suffix = ' ❌';
+        return {
+          key: 'year-' + y,
+          year: y,
+          label: String(y) + suffix,
+          sortable: false,
+          filterable: true,
+          filterVal: filterVal
+        };
+      }),
       { key: 'earliest', label: 'Earliest', sortable: true },
       { key: 'latest', label: 'Latest', sortable: true },
       { key: 'totalSightings', label: 'Count', sortable: true },
@@ -826,6 +893,14 @@
           th.classList.add(state.sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
         }
         th.addEventListener('click', () => handleSort(col.key));
+      } else if (col.filterable) {
+        th.style.cursor = 'pointer';
+        th.title = `Click to cycle filter: All / Seen / Not Seen (Currently: ${col.filterVal.toUpperCase()})`;
+        th.classList.add('th--year-filter');
+        if (col.filterVal !== 'all') {
+          th.classList.add(col.filterVal === 'seen' ? 'th--year-filter-seen' : 'th--year-filter-unseen');
+        }
+        th.addEventListener('click', () => handleYearHeaderClick(col.year));
       }
       DOM.gridHeaderRow.appendChild(th);
     }
@@ -980,6 +1055,24 @@
     }
     computeSpeciesData();
     renderGrid();
+  }
+
+  function handleYearHeaderClick(year) {
+    const current = state.yearFilters[year] || 'all';
+    let next = 'all';
+    if (current === 'all') next = 'seen';
+    else if (current === 'seen') next = 'unseen';
+
+    if (next === 'all') {
+      delete state.yearFilters[year];
+    } else {
+      state.yearFilters[year] = next;
+    }
+
+    computeSpeciesData();
+    renderGrid();
+    updateStats();
+    updateAlerts();
   }
 
   function handleToggleTarget(commonName, isTarget) {
@@ -1155,6 +1248,12 @@
     // Toggles
     DOM.toggleAggregate.addEventListener('change', (e) => {
       state.aggregateSubspecies = e.target.checked;
+      DB.setSetting('aggregateSubspecies', state.aggregateSubspecies);
+      if (state.isDataLoaded) refreshGrid();
+    });
+    DOM.toggleTrueSpecies.addEventListener('change', (e) => {
+      state.showTrueSpeciesOnly = e.target.checked;
+      DB.setSetting('showTrueSpeciesOnly', state.showTrueSpeciesOnly);
       if (state.isDataLoaded) refreshGrid();
     });
     DOM.toggleTargetsOnly.addEventListener('change', (e) => {
@@ -1196,6 +1295,8 @@
     DOM.filterSimDate.value = formatDateISO(state.simDate);
     state.targetYear = new Date().getFullYear();
     bindEvents();
+    state.aggregateSubspecies = DOM.toggleAggregate.checked;
+    state.showTrueSpeciesOnly = DOM.toggleTrueSpecies.checked;
     initDashboard();
   }
 

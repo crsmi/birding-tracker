@@ -95,9 +95,14 @@
       <div class="sidebar-section">
         <span class="sidebar-section__title">⚙️ Options</span>
         <label class="control-toggle" title="When enabled, merge subspecies (e.g. Yellow-rumped Warbler (Myrtle)) under their parent species.">
-          <input type="checkbox" id="toggle-aggregate" />
+          <input type="checkbox" id="toggle-aggregate" checked />
           <span class="control-toggle__track"></span>
           Aggregate Subspecies
+        </label>
+        <label class="control-toggle" title="Hide slashes, spuhs, hybrids, and domestic forms (e.g. gull sp., Cooper's/Sharp-shinned Hawk).">
+          <input type="checkbox" id="toggle-true-species" checked />
+          <span class="control-toggle__track"></span>
+          True Species Only
         </label>
         <label class="control-toggle" title="Show only species marked as targets.">
           <input type="checkbox" id="toggle-targets-only" />

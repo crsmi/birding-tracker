@@ -1008,3 +1008,22 @@ a:hover {
     display: none; /* Mobile: use modal/drawer instead */
   }
 }
+
+/* --------------------------------------------------------------------------
+   18. Interactive Year Headers & Filters
+   -------------------------------------------------------------------------- */
+.th--year-filter {
+  transition: all var(--transition-fast);
+}
+.th--year-filter:hover {
+  background: var(--color-surface-hover) !important;
+  color: var(--color-text-primary) !important;
+}
+.th--year-filter-seen {
+  color: var(--color-success) !important;
+  border-bottom: 2px solid var(--color-success) !important;
+}
+.th--year-filter-unseen {
+  color: var(--color-danger) !important;
+  border-bottom: 2px solid var(--color-danger) !important;
+}
