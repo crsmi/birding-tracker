@@ -136,8 +136,8 @@
     // Hybrids (contains ' x ' with spaces, or 'hybrid')
     if (c.includes(' x ') || s.includes(' x ') || c.includes('hybrid') || s.includes('hybrid')) return false;
 
-    // Domestic
-    if (c.includes('(domestic') || c.includes('domestic type') || s.includes('domestic')) return false;
+    // Domestic (must contain parenthesis like '(domestic' or '(domestic type)' to avoid matching true species like House Sparrow 'Passer domesticus')
+    if (c.includes('(domestic') || s.includes('(domestic')) return false;
 
     return true;
   }
