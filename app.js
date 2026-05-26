@@ -108,120 +108,122 @@
      ----------------------------------------------------------------------- */
   const $ = (id) => document.getElementById(id);
 
-  const DOM = {
-    btnToggleSidebar: $('btn-toggle-sidebar'),
-    btnCloseSidebar: $('btn-close-sidebar'),
-    sidebarBackdrop: $('sidebar-backdrop'),
-    btnToggleAnalyzer: $('btn-toggle-analyzer'),
-    analyzerControls: $('analyzer-controls'),
-    inputFile: $('input-file'),
-    inputFileDrop: $('input-file-drop'),
-    dropZone: $('drop-zone'),
-    btnLoadMock: $('btn-load-mock'),
-    btnLoadMockMain: $('btn-load-mock-main'),
-    btnExportState: $('btn-export-state'),
-    inputImportState: $('input-import-state'),
-    btnClearData: $('btn-clear-data'),
-    filterState: $('filter-state'),
-    filterCounty: $('filter-county'),
-    filterYear: $('filter-year'),
-    filterSimDate: $('filter-sim-date'),
-    filterSearch: $('filter-search'),
-    toggleAggregate: $('toggle-aggregate'),
-    toggleTrueSpecies: $('toggle-true-species'),
-    toggleTargetsOnly: $('toggle-targets-only'),
-    togglePastDueOnly: $('toggle-past-due-only'),
-    statsBar: $('stats-bar'),
-    statBarSpecies: $('stat-bar-species'),
-    statBarTargets: $('stat-bar-targets'),
-    statBarPastDue: $('stat-bar-pastdue'),
-    statBarYear: $('stat-bar-year'),
-    statBarSimDate: $('stat-bar-simdate'),
-    statTotalRecords: $('stat-total-records'),
-    statTotalSpecies: $('stat-total-species'),
-    statDateAsOf: $('stat-date-as-of'),
-    alertsPanel: $('alerts-panel'),
-    alertsList: $('alerts-list'),
-    btnToggleAlerts: $('btn-toggle-alerts'),
-    emptyState: $('empty-state'),
-    gridWrapper: $('grid-wrapper'),
-    gridHeaderRow: $('grid-header-row'),
-    gridBody: $('grid-body'),
-    loadingOverlay: $('loading-overlay'),
-    loadingText: $('loading-text'),
-    importProgress: $('import-progress'),
-    importProgressFill: $('import-progress-fill'),
-    importStatus: $('import-status'),
-    toastContainer: $('toast-container'),
+  const DOM = {};
+
+  function initDOMReferences() {
+    DOM.btnToggleSidebar = $('btn-toggle-sidebar');
+    DOM.btnCloseSidebar = $('btn-close-sidebar');
+    DOM.sidebarBackdrop = $('sidebar-backdrop');
+    DOM.btnToggleAnalyzer = $('btn-toggle-analyzer');
+    DOM.analyzerControls = $('analyzer-controls');
+    DOM.inputFile = $('input-file');
+    DOM.inputFileDrop = $('input-file-drop');
+    DOM.dropZone = $('drop-zone');
+    DOM.btnLoadMock = $('btn-load-mock');
+    DOM.btnLoadMockMain = $('btn-load-mock-main');
+    DOM.btnExportState = $('btn-export-state');
+    DOM.inputImportState = $('input-import-state');
+    DOM.btnClearData = $('btn-clear-data');
+    DOM.filterState = $('filter-state');
+    DOM.filterCounty = $('filter-county');
+    DOM.filterYear = $('filter-year');
+    DOM.filterSimDate = $('filter-sim-date');
+    DOM.filterSearch = $('filter-search');
+    DOM.toggleAggregate = $('toggle-aggregate');
+    DOM.toggleTrueSpecies = $('toggle-true-species');
+    DOM.toggleTargetsOnly = $('toggle-targets-only');
+    DOM.togglePastDueOnly = $('toggle-past-due-only');
+    DOM.statsBar = $('stats-bar');
+    DOM.statBarSpecies = $('stat-bar-species');
+    DOM.statBarTargets = $('stat-bar-targets');
+    DOM.statBarPastDue = $('stat-bar-pastdue');
+    DOM.statBarYear = $('stat-bar-year');
+    DOM.statBarSimDate = $('stat-bar-simdate');
+    DOM.statTotalRecords = $('stat-total-records');
+    DOM.statTotalSpecies = $('stat-total-species');
+    DOM.statDateAsOf = $('stat-date-as-of');
+    DOM.alertsPanel = $('alerts-panel');
+    DOM.alertsList = $('alerts-list');
+    DOM.btnToggleAlerts = $('btn-toggle-alerts');
+    DOM.emptyState = $('empty-state');
+    DOM.gridWrapper = $('grid-wrapper');
+    DOM.gridHeaderRow = $('grid-header-row');
+    DOM.gridBody = $('grid-body');
+    DOM.loadingOverlay = $('loading-overlay');
+    DOM.loadingText = $('loading-text');
+    DOM.importProgress = $('import-progress');
+    DOM.importProgressFill = $('import-progress-fill');
+    DOM.importStatus = $('import-status');
+    DOM.toastContainer = $('toast-container');
 
     // Tick Explorer DOM
-    tabYoY: $('tab-yoy'),
-    tabTick: $('tab-tick'),
-    tickExplorerWrapper: $('tick-explorer-wrapper'),
-    tickStatTotal: $('tick-stat-total'),
-    tickStatCounties: $('tick-stat-counties'),
-    tickStatTop: $('tick-stat-top'),
-    tickStatTopCount: $('tick-stat-top-count'),
-    tickDateStart: $('tick-date-start'),
-    tickDateEnd: $('tick-date-end'),
-    btnClearDateFilter: $('btn-clear-date-filter'),
-    tickSearchSubregions: $('tick-search-subregions'),
-    subregionListBody: $('subregion-list-body'),
-    timelineAdditionsList: $('timeline-additions-list'),
-    timelineAdditionsTitle: $('timeline-additions-title'),
-    tickSvgMap: $('tick-svg-map'),
-    mapNodesLayer: $('map-nodes-layer'),
-    mapEdgesLayer: $('map-edges-layer'),
-    mapLabelsLayer: $('map-labels-layer'),
-    mapTooltip: $('map-tooltip'),
-    mapColorMode: $('map-color-mode'),
-    mapLegendMin: $('map-legend-min'),
-    mapLegendMax: $('map-legend-max'),
-    analyzerSummary: $('tick-analyzer-summary'),
-    analyzerStart: $('tick-analyzer-start'),
-    analyzerEnd: $('tick-analyzer-end'),
-    analyzerAdded: $('tick-analyzer-added'),
-    btnDownloadMap: $('btn-download-map'),
-    btnDownloadInfographic: $('btn-download-infographic'),
-    btnDownloadCsv: $('btn-download-csv'),
-    btnEbirdLifelist: $('btn-ebird-lifelist'),
-    btnMapZoomOut: $('btn-map-zoom-out'),
-    tickLevel: $('tick-level'),
-    tickStatTotalLabel: $('tick-stat-total-label'),
-    tickStatCountiesLabel: $('tick-stat-counties-label'),
-    tickStatTopLabel: $('tick-stat-top-label'),
-    tickStatTotalDesc: $('tick-stat-total-desc'),
-    tickStatCountiesDesc: $('tick-stat-counties-desc'),
+    DOM.tabYoY = $('tab-yoy');
+    DOM.tabTick = $('tab-tick');
+    DOM.tickExplorerWrapper = $('tick-explorer-wrapper');
+    DOM.tickStatTotal = $('tick-stat-total');
+    DOM.tickStatCounties = $('tick-stat-counties');
+    DOM.tickStatTop = $('tick-stat-top');
+    DOM.tickStatTopCount = $('tick-stat-top-count');
+    DOM.tickDateStart = $('tick-date-start');
+    DOM.tickDateEnd = $('tick-date-end');
+    DOM.btnClearDateFilter = $('btn-clear-date-filter');
+    DOM.tickSearchSubregions = $('tick-search-subregions');
+    DOM.subregionListBody = $('subregion-list-body');
+    DOM.timelineAdditionsList = $('timeline-additions-list');
+    DOM.timelineAdditionsTitle = $('timeline-additions-title');
+    DOM.tickSvgMap = $('tick-svg-map');
+    DOM.mapNodesLayer = $('map-nodes-layer');
+    DOM.mapEdgesLayer = $('map-edges-layer');
+    DOM.mapLabelsLayer = $('map-labels-layer');
+    DOM.mapTooltip = $('map-tooltip');
+    DOM.mapColorMode = $('map-color-mode');
+    DOM.mapLegendMin = $('map-legend-min');
+    DOM.mapLegendMax = $('map-legend-max');
+    DOM.analyzerSummary = $('tick-analyzer-summary');
+    DOM.analyzerStart = $('tick-analyzer-start');
+    DOM.analyzerEnd = $('tick-analyzer-end');
+    DOM.analyzerAdded = $('tick-analyzer-added');
+    DOM.btnDownloadMap = $('btn-download-map');
+    DOM.btnDownloadInfographic = $('btn-download-infographic');
+    DOM.btnDownloadCsv = $('btn-download-csv');
+    DOM.btnEbirdLifelist = $('btn-ebird-lifelist');
+    DOM.btnMapZoomOut = $('btn-map-zoom-out');
+    DOM.tickLevel = $('tick-level');
+    DOM.tickStatTotalLabel = $('tick-stat-total-label');
+    DOM.tickStatCountiesLabel = $('tick-stat-counties-label');
+    DOM.tickStatTopLabel = $('tick-stat-top-label');
+    DOM.tickStatTotalDesc = $('tick-stat-total-desc');
+    DOM.tickStatCountiesDesc = $('tick-stat-counties-desc');
 
     // Settings DOM
-    tabSettings: $('tab-settings'),
-    settingsWrapper: $('settings-wrapper'),
-    exclusionSpecies: $('exclusion-species'),
-    datalistSpecies: $('datalist-species'),
-    exclusionState: $('exclusion-state'),
-    exclusionCounty: $('exclusion-county'),
-    formAddExclusion: $('form-add-exclusion'),
-    userExclusionsBody: $('user-exclusions-body'),
-    systemExclusionsBody: $('system-exclusions-body'),
-    settingsImportCard: $('settings-import-card'),
-    settingsImportRegionLabel: $('settings-import-region-label'),
-    inputEbirdLifelistCsv: $('input-ebird-lifelist-csv'),
-    chkBackupIncludeData: $('chk-backup-include-data'),
-    chkEnableHighlights: $('chk-enable-highlights'),
-    btnSetDefaultRegion: $('btn-set-default-region'),
-    settingsDefaultRegionStatus: $('settings-default-region-status'),
-    btnClearDefaultRegion: $('btn-clear-default-region'),
-    filterCustomGroup: $('filter-custom-group'),
-    groupNameInput: $('group-name-input'),
-    groupStateSelect: $('group-state-select'),
-    groupMapContainer: $('group-map-container'),
-    groupSvgMap: $('group-svg-map'),
-    groupMapPaths: $('group-map-paths'),
-    groupSelectedContainer: $('group-selected-container'),
-    groupSelectedListBox: $('group-selected-list-box'),
-    btnSaveCustomGroup: $('btn-save-custom-group'),
-    settingsCustomGroupsList: $('settings-custom-groups-list'),
-  };
+    DOM.tabSettings = $('tab-settings');
+    DOM.settingsWrapper = $('settings-wrapper');
+    DOM.exclusionSpecies = $('exclusion-species');
+    DOM.datalistSpecies = $('datalist-species');
+    DOM.exclusionState = $('exclusion-state');
+    DOM.exclusionCounty = $('exclusion-county');
+    DOM.formAddExclusion = $('form-add-exclusion');
+    DOM.userExclusionsBody = $('user-exclusions-body');
+    DOM.systemExclusionsBody = $('system-exclusions-body');
+    DOM.settingsImportCard = $('settings-import-card');
+    DOM.settingsImportRegionLabel = $('settings-import-region-label');
+    DOM.inputEbirdLifelistCsv = $('input-ebird-lifelist-csv');
+    DOM.chkBackupIncludeData = $('chk-backup-include-data');
+    DOM.chkEnableHighlights = $('chk-enable-highlights');
+    DOM.btnSetDefaultRegion = $('btn-set-default-region');
+    DOM.settingsDefaultRegionStatus = $('settings-default-region-status');
+    DOM.btnClearDefaultRegion = $('btn-clear-default-region');
+    DOM.filterCustomGroup = $('filter-custom-group');
+    DOM.groupNameInput = $('group-name-input');
+    DOM.groupStateSelect = $('group-state-select');
+    DOM.groupMapContainer = $('group-map-container');
+    DOM.groupSvgMap = $('group-svg-map');
+    DOM.groupMapPaths = $('group-map-paths');
+    DOM.groupSelectedContainer = $('group-selected-container');
+    DOM.groupSelectedListBox = $('group-selected-list-box');
+    DOM.btnSaveCustomGroup = $('btn-save-custom-group');
+    DOM.settingsCustomGroupsList = $('settings-custom-groups-list');
+  }
 
   /* -----------------------------------------------------------------------
      3. Utilities
@@ -2450,7 +2452,8 @@
 
       if (keyField === 'state') {
         const fips = feature.id;
-        const code = FIPS_TO_STATE[fips] || '';
+        const fipsStr = String(fips).padStart(2, '0');
+        const code = FIPS_TO_STATE[fipsStr] || '';
         stateCode = code ? `US-${code}` : '';
         lookupKey = stateCode;
         
@@ -2533,7 +2536,8 @@
       path.addEventListener('click', (e) => {
         e.stopPropagation();
         if (keyField === 'state') {
-          const code = FIPS_TO_STATE[feature.id] || '';
+          const fipsStr = String(feature.id).padStart(2, '0');
+          const code = FIPS_TO_STATE[fipsStr] || '';
           if (code) {
             const fullCode = `US-${code}`;
             DOM.filterState.value = fullCode;
@@ -2553,7 +2557,8 @@
         if (keyField === 'state') {
           // Aggregate endTotal across all counties in this state
           let stateEndTotal = 0;
-          const code = FIPS_TO_STATE[feature.id] || '';
+          const fipsStr = String(feature.id).padStart(2, '0');
+          const code = FIPS_TO_STATE[fipsStr] || '';
           for (const [key, set] of endTotalCounts) {
             if (key.startsWith(`US-${code}::`) || key.startsWith(`${code}::`)) {
               stateEndTotal += set.size;
@@ -5021,6 +5026,7 @@
      ----------------------------------------------------------------------- */
 
   function boot() {
+    initDOMReferences();
     state.simDate = new Date();
     DOM.filterSimDate.value = formatDateISO(state.simDate);
     state.targetYear = new Date().getFullYear();
