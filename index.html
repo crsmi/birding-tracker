@@ -295,13 +295,8 @@
               <div class="tick-card-panel__title" style="display:flex;align-items:center;justify-content:space-between;">
                 <span>🗺️ Geographic Subregion Heatmap</span>
                 <div style="display:flex; gap: var(--space-2); align-items: center; flex-wrap: wrap;">
-                  <label class="control-toggle" style="margin: 0; font-size: 11px; white-space: nowrap; height: 24px; display: inline-flex; align-items: center; gap: 6px; padding-right: 4px;" title="Toggle between exporting a rich infographic layout with legend/metadata vs just the plain map image">
-                    <input type="checkbox" id="toggle-export-infographic" checked />
-                    <span class="control-toggle__track"></span>
-                    🖼️ Export Infographic
-                  </label>
-                  <a id="btn-ebird-lifelist" class="btn btn--ghost btn--xs btn-lifelist-link" target="_blank" rel="noopener noreferrer" title="Go to eBird to download the life list CSV for the active region">🔗 eBird Life List</a>
-                  <button id="btn-download-map" class="btn btn--ghost btn--xs" title="Download map as PNG image">📥 Save Map</button>
+                  <button id="btn-download-infographic" class="btn btn--ghost btn--xs" title="Download a rich infographic layout with legend and metadata">🖼️ Save Infographic</button>
+                  <button id="btn-download-map" class="btn btn--ghost btn--xs" title="Download plain map image">📥 Save Image</button>
                 </div>
               </div>
               <div class="map-container" id="map-container">
@@ -413,6 +408,26 @@
                   💾 Add Exclusion Rule
                 </button>
               </form>
+            </div>
+
+            <div class="settings-card" id="settings-import-card" style="display: none; margin-top: var(--space-4);">
+              <h3 class="settings-card__title">📥 Auto-Import Regional Exotics</h3>
+              <p style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
+                To quickly identify exotic or non-countable species for <strong id="settings-import-region-label">this region</strong>, download your official eBird region life list and import the CSV file here.
+              </p>
+              
+              <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                <!-- Step 1: Download button -->
+                <a id="btn-ebird-lifelist" class="btn btn--secondary btn--sm" target="_blank" rel="noopener noreferrer" style="width: 100%; text-align: center; justify-content: center; display: inline-flex; align-items: center; gap: 6px;">
+                  🔗 Download Region Life List
+                </a>
+                
+                <!-- Step 2: Upload button -->
+                <label class="btn btn--ghost btn--sm" style="display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; border: 1px dashed var(--color-border); margin: 0; text-align: center;">
+                  📂 Import eBird CSV File
+                  <input type="file" id="input-ebird-lifelist-csv" accept=".csv" style="display: none;" />
+                </label>
+              </div>
             </div>
           </div>
 

@@ -135,11 +135,11 @@
     analyzerEnd: $('tick-analyzer-end'),
     analyzerAdded: $('tick-analyzer-added'),
     btnDownloadMap: $('btn-download-map'),
+    btnDownloadInfographic: $('btn-download-infographic'),
     btnDownloadCsv: $('btn-download-csv'),
     btnEbirdLifelist: $('btn-ebird-lifelist'),
     btnMapZoomOut: $('btn-map-zoom-out'),
     tickLevel: $('tick-level'),
-    toggleExportInfographic: $('toggle-export-infographic'),
     tickStatTotalLabel: $('tick-stat-total-label'),
     tickStatCountiesLabel: $('tick-stat-counties-label'),
     tickStatTopLabel: $('tick-stat-top-label'),
@@ -156,6 +156,9 @@
     formAddExclusion: $('form-add-exclusion'),
     userExclusionsBody: $('user-exclusions-body'),
     systemExclusionsBody: $('system-exclusions-body'),
+    settingsImportCard: $('settings-import-card'),
+    settingsImportRegionLabel: $('settings-import-region-label'),
+    inputEbirdLifelistCsv: $('input-ebird-lifelist-csv'),
   };
 
   /* -----------------------------------------------------------------------
@@ -764,10 +767,7 @@
         }
       }
 
-      const savedExportInfographic = await DB.getSetting('toggleExportInfographic');
-      if (savedExportInfographic !== null && DOM.toggleExportInfographic) {
-        DOM.toggleExportInfographic.checked = savedExportInfographic;
-      }
+
 
       const savedUserExclusions = await DB.getSetting('userExclusions');
       state.userExclusions = savedUserExclusions || [];
@@ -1406,33 +1406,78 @@
     return centroids;
   }
 
-  function getEbirdRegionCode() {
-    if (!state.filterState) {
-      return 'US';
-    }
-    const cleanState = cleanStateCode(state.filterState);
-    if (!state.selectedMapCounty) {
+
+
+  function getSettingsEbirdRegionCode() {
+    if (!DOM.exclusionState || !DOM.exclusionState.value) return 'US';
+    const cleanState = cleanStateCode(DOM.exclusionState.value);
+    if (!DOM.exclusionCounty || !DOM.exclusionCounty.value) {
       return `US-${cleanState}`;
     }
 
+    const countyName = DOM.exclusionCounty.value;
     const stateFips = STATE_TO_FIPS[cleanState];
     if (stateFips && typeof topojson !== 'undefined' && window.US_ATLAS) {
       try {
         const counties = topojson.feature(window.US_ATLAS, window.US_ATLAS.objects.counties).features;
         const countyFeature = counties.find(
           f => f.id.startsWith(stateFips) && 
-               f.properties.name.toLowerCase() === state.selectedMapCounty.toLowerCase()
+               f.properties.name.toLowerCase() === countyName.toLowerCase()
         );
         if (countyFeature) {
           const countyFipsSuffix = countyFeature.id.slice(2);
           return `US-${cleanState}-${countyFipsSuffix}`;
         }
       } catch (err) {
-        console.error('Error mapping county to eBird region code:', err);
+        console.error('Error mapping settings county to eBird region code:', err);
       }
     }
 
     return `US-${cleanState}`;
+  }
+
+  function updateSettingsImportCard() {
+    const card = DOM.settingsImportCard;
+    const label = DOM.settingsImportRegionLabel;
+    const link = DOM.btnEbirdLifelist;
+
+    if (!card || !label || !link) return;
+
+    const selectedState = DOM.exclusionState ? DOM.exclusionState.value : '';
+    const selectedCounty = DOM.exclusionCounty ? DOM.exclusionCounty.value : '';
+
+    if (!selectedState) {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = 'block';
+
+    const cleanState = cleanStateCode(selectedState);
+    let regionLabel = cleanState;
+    if (selectedCounty) {
+      regionLabel = `${selectedCounty}, ${cleanState}`;
+    }
+    label.textContent = regionLabel;
+
+    const regionCode = getSettingsEbirdRegionCode();
+    link.href = `https://ebird.org/lifelist?r=${regionCode}&time=life&fmt=csv`;
+    link.textContent = `🔗 Download ${regionLabel} Life List`;
+  }
+
+  function parseEbirdLifeListCSV(csvText) {
+    return new Promise((resolve, reject) => {
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function (results) {
+          resolve(results.data);
+        },
+        error: function (err) {
+          reject(err);
+        }
+      });
+    });
   }
 
   async function renderTickExplorer() {
@@ -1441,21 +1486,7 @@
     try {
       const centroids = computeTickMilestones();
 
-      // Update eBird helper link
-      if (DOM.btnEbirdLifelist) {
-        const regionCode = getEbirdRegionCode();
-        DOM.btnEbirdLifelist.href = `https://ebird.org/lifelist?r=${regionCode}&time=life&fmt=csv`;
-        
-        let label = 'US';
-        if (state.filterState) {
-          const cleanState = cleanStateCode(state.filterState);
-          label = cleanState;
-          if (state.selectedMapCounty) {
-            label = `${state.selectedMapCounty}, ${cleanState}`;
-          }
-        }
-        DOM.btnEbirdLifelist.textContent = `🔗 Download ${label} Life List`;
-      }
+
 
       // Aggregate list sizes by subregions
       const subregions = new Map(); // "state::county" or "state" -> { county, state, lat, lng, speciesCount, speciesSet }
@@ -3411,6 +3442,271 @@
      15. Event Binding
      ----------------------------------------------------------------------- */
 
+  function downloadMapPNG(exportInfographic) {
+    const svgEl = DOM.tickSvgMap;
+    if (!svgEl) return;
+
+    const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+
+    // Gather geography context
+    let geography = 'UNITED STATES';
+    if (state.filterState) {
+      const cleanState = cleanStateCode(state.filterState);
+      geography = cleanState;
+      if (!isStateLevel && state.selectedMapCounty) {
+        geography = `${state.selectedMapCounty} County, ${cleanState}`;
+      }
+    }
+    geography = geography.toUpperCase();
+
+    let timeframe = 'All-Time';
+    let beforeCount = 0;
+    let addedCount = 0;
+    let afterCount = 0;
+    const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+
+    // Filter milestones to geography context
+    const geoMilestones = !isStateLevel && state.selectedMapCounty
+      ? state.tickMilestones.filter(m => m.county === state.selectedMapCounty)
+      : (state.filterState
+         ? state.tickMilestones.filter(m => {
+             const cleanState = cleanStateCode(state.filterState);
+             return m.state === state.filterState || m.state.endsWith(cleanState);
+           })
+         : state.tickMilestones);
+
+    if (isTimeframeActive) {
+      let startStr = 'Start';
+      if (state.tickDateStart) {
+        const parts = state.tickDateStart.split('-');
+        const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+        startStr = formatDateLabel(dateObj);
+      }
+      let endStr = 'Present';
+      if (state.tickDateEnd) {
+        const parts = state.tickDateEnd.split('-');
+        const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+        endStr = formatDateLabel(dateObj);
+      }
+      timeframe = `${startStr} to ${endStr}`;
+
+      beforeCount = state.tickDateStart
+        ? geoMilestones.filter(m => m.date < state.tickDateStart).length
+        : 0;
+      afterCount = state.tickDateEnd
+        ? geoMilestones.filter(m => m.date <= state.tickDateEnd).length
+        : geoMilestones.length;
+      addedCount = geoMilestones.filter(m => {
+        if (state.tickDateStart && m.date < state.tickDateStart) return false;
+        if (state.tickDateEnd && m.date > state.tickDateEnd) return false;
+        return true;
+      }).length;
+    }
+
+    const dataAsOf = DOM.statDateAsOf ? DOM.statDateAsOf.textContent : '—';
+    const maxVal = DOM.mapLegendMax ? DOM.mapLegendMax.textContent : 'Max';
+
+    let speciesCountText = '';
+    if (!isStateLevel && state.selectedMapCounty) {
+      speciesCountText = `${geoMilestones.length.toLocaleString()} Species Ticked`;
+    } else {
+      speciesCountText = `${geoMilestones.length.toLocaleString()} Total Ticks`;
+    }
+
+    const colorMode = DOM.mapColorMode ? DOM.mapColorMode.value : 'total';
+    const modeTitle = colorMode === 'added' ? 'TIMEFRAME ADDITIONS' : 'TOTAL LIFETIME TICKS';
+
+    let svgData = new XMLSerializer().serializeToString(svgEl);
+    // Resolve CSS variables inside serialized SVG for standalone image rendering
+    svgData = svgData.replace(/var\(--color-accent\)/g, '#14b8a6');
+    svgData = svgData.replace(/var\(--color-border-subtle\)/g, 'rgba(255, 255, 255, 0.08)');
+    const canvas = document.createElement('canvas');
+    canvas.width = 2000;
+    canvas.height = 1600;
+    const ctx2 = canvas.getContext('2d');
+
+    // Draw dark background
+    ctx2.fillStyle = '#0f1729';
+    ctx2.fillRect(0, 0, canvas.width, canvas.height);
+
+    const img = new Image();
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      try {
+        if (exportInfographic) {
+          // Draw map SVG much larger (occupying 1800x1430 starting at Y = 130)
+          ctx2.drawImage(img, 100, 130, 1800, 1430);
+          URL.revokeObjectURL(url);
+
+          // Draw Metadata Header (Left-aligned)
+          ctx2.fillStyle = '#38bdf8';
+          ctx2.font = '600 22px monospace';
+          ctx2.textAlign = 'left';
+          ctx2.fillText(`BIRDING TRACKER // ${modeTitle}`, 100, 50);
+
+          ctx2.fillStyle = '#ffffff';
+          ctx2.font = '700 48px system-ui, -apple-system, sans-serif';
+          ctx2.fillText(geography, 100, 110);
+
+          // Draw Metadata Header (Right-aligned in top right)
+          ctx2.textAlign = 'right';
+          ctx2.fillStyle = '#38bdf8';
+          ctx2.font = '700 36px system-ui, -apple-system, sans-serif';
+          ctx2.fillText(speciesCountText, 1900, 75);
+
+          ctx2.fillStyle = '#94a3b8';
+          ctx2.font = '600 22px system-ui, -apple-system, sans-serif';
+          ctx2.fillText(`Data as of: ${dataAsOf}`, 1900, 115);
+
+          // Horizontal divider line
+          ctx2.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+          ctx2.lineWidth = 2;
+          ctx2.beginPath();
+          ctx2.moveTo(100, 150);
+          ctx2.lineTo(1900, 150);
+          ctx2.stroke();
+
+          // CONDITIONAL: Timeframe Box on the right of the map (only drawn if active)
+          if (isTimeframeActive) {
+            const boxX = 1400;
+            const boxY = 180;
+            const boxW = 500;
+            const boxH = 320;
+
+            // Draw glassmorphic Timeframe box
+            ctx2.fillStyle = '#0f1729';
+            ctx2.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx2.lineWidth = 2;
+            ctx2.fillRect(boxX, boxY, boxW, boxH);
+            ctx2.strokeRect(boxX, boxY, boxW, boxH);
+
+            // Timeframe text drawings
+            ctx2.textAlign = 'left';
+            ctx2.fillStyle = '#94a3b8';
+            ctx2.font = '600 18px system-ui, -apple-system, sans-serif';
+            ctx2.fillText('TIMEFRAME ANALYSIS', boxX + 30, boxY + 45);
+
+            ctx2.fillStyle = '#ffffff';
+            ctx2.font = '700 24px system-ui, -apple-system, sans-serif';
+            ctx2.fillText(timeframe, boxX + 30, boxY + 85);
+
+            // Comma-formatted values aligned left/right
+            ctx2.font = '600 22px system-ui, -apple-system, sans-serif';
+            
+            // Before
+            ctx2.fillStyle = '#94a3b8';
+            ctx2.textAlign = 'left';
+            ctx2.fillText('Before ticks:', boxX + 30, boxY + 145);
+            ctx2.fillStyle = '#ffffff';
+            ctx2.textAlign = 'right';
+            ctx2.fillText(beforeCount.toLocaleString(), boxX + 470, boxY + 145);
+
+            // Gained
+            ctx2.fillStyle = '#14b8a6';
+            ctx2.textAlign = 'left';
+            ctx2.fillText('Ticks gained:', boxX + 30, boxY + 200);
+            ctx2.textAlign = 'right';
+            ctx2.fillText(`+${addedCount.toLocaleString()}`, boxX + 470, boxY + 200);
+
+            // After
+            ctx2.fillStyle = '#a78bfa';
+            ctx2.textAlign = 'left';
+            ctx2.fillText('After ticks:', boxX + 30, boxY + 255);
+            ctx2.fillStyle = '#ffffff';
+            ctx2.textAlign = 'right';
+            ctx2.fillText(afterCount.toLocaleString(), boxX + 470, boxY + 255);
+          }
+
+          // Legend (Drawn at the far bottom-left, completely off the map bounding area)
+          ctx2.textAlign = 'left';
+          ctx2.fillStyle = '#94a3b8';
+          ctx2.font = '600 18px system-ui, -apple-system, sans-serif';
+          ctx2.fillText('HEATMAP SCALE', 100, 1490);
+
+          // Draw gradient bar
+          const grad = ctx2.createLinearGradient(100, 0, 420, 0);
+          grad.addColorStop(0, 'hsl(55, 100%, 65%)');
+          grad.addColorStop(0.5, 'hsl(28, 100%, 55%)');
+          grad.addColorStop(1, 'hsl(0, 100%, 48%)');
+          ctx2.fillStyle = grad;
+          ctx2.fillRect(100, 1510, 320, 16);
+
+          // Draw legend labels
+          ctx2.fillStyle = '#94a3b8';
+          ctx2.font = '700 20px system-ui, -apple-system, sans-serif';
+          ctx2.textAlign = 'right';
+          ctx2.fillText('0', 80, 1525);
+          ctx2.textAlign = 'left';
+          ctx2.fillText(maxVal, 435, 1525);
+        } else {
+          // Draw plain map centered and filling almost the entire canvas
+          ctx2.drawImage(img, 60, 48, 1880, 1504);
+          URL.revokeObjectURL(url);
+        }
+
+        // Export trigger
+        const link = document.createElement('a');
+        document.body.appendChild(link);
+        link.download = constructDescriptiveFilename('png', exportInfographic);
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        document.body.removeChild(link);
+        showToast('Map image downloaded!', 'success');
+      } catch (securityError) {
+        console.warn('Canvas export tainted or restricted, falling back to SVG download:', securityError);
+        triggerDirectSvgDownload(svgData, exportInfographic);
+      }
+    };
+
+    img.onerror = (err) => {
+      console.warn('Failed to load SVG into image, falling back to direct SVG download:', err);
+      triggerDirectSvgDownload(svgData, exportInfographic);
+    };
+
+    img.src = url;
+  }
+
+  function constructDescriptiveFilename(extension, exportInfographic) {
+    const levelStr = DOM.tickLevel && DOM.tickLevel.value === 'state' ? 'state-level' : 'county-level';
+    
+    let geoStr = 'us';
+    if (state.filterState) {
+      const cleanState = cleanStateCode(state.filterState).toLowerCase();
+      geoStr = cleanState;
+      const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+      if (!isStateLevel && state.selectedMapCounty) {
+        const cleanCounty = state.selectedMapCounty.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        geoStr = `${cleanState}-${cleanCounty}-county`;
+      }
+    }
+
+    const colorMode = DOM.mapColorMode ? DOM.mapColorMode.value : 'total';
+    const modeStr = colorMode === 'added' ? 'timeframe-additions' : 'lifetime-totals';
+
+    let timeframeStr = 'all-time';
+    if (state.tickDateStart || state.tickDateEnd) {
+      const startVal = state.tickDateStart ? state.tickDateStart : 'start';
+      const endVal = state.tickDateEnd ? state.tickDateEnd : 'present';
+      timeframeStr = `${startVal}_to_${endVal}`;
+    }
+
+    const suffixStr = exportInfographic ? 'infographic' : 'plain';
+
+    return `birding-tracker-${levelStr}-${geoStr}-${modeStr}-${timeframeStr}-${suffixStr}.${extension}`;
+  }
+
+  function triggerDirectSvgDownload(svgData, exportInfographic) {
+    const link = document.createElement('a');
+    document.body.appendChild(link);
+    link.download = constructDescriptiveFilename('svg', exportInfographic);
+    link.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Browser security restricted PNG; downloaded SVG map instead!', 'warning');
+  }
+
   function bindEvents() {
     // Window Resize - Reposition header actions
     window.addEventListener('resize', debounce(repositionHeaderActions, 150));
@@ -3635,12 +3931,6 @@
       });
     }
 
-    if (DOM.toggleExportInfographic) {
-      DOM.toggleExportInfographic.addEventListener('change', () => {
-        DB.setSetting('toggleExportInfographic', DOM.toggleExportInfographic.checked);
-      });
-    }
-
     // Zoom Out floating button click
     if (DOM.btnMapZoomOut) {
       DOM.btnMapZoomOut.addEventListener('click', (e) => {
@@ -3747,276 +4037,21 @@
       });
     });
 
-    // Download map as PNG with rich metadata
+    // Download plain map image
     if (DOM.btnDownloadMap) {
       DOM.btnDownloadMap.addEventListener('click', () => {
-        const svgEl = DOM.tickSvgMap;
-        if (!svgEl) return;
-
-        const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
-
-        // Gather geography context
-        let geography = 'UNITED STATES';
-        if (state.filterState) {
-          const cleanState = cleanStateCode(state.filterState);
-          geography = cleanState;
-          if (!isStateLevel && state.selectedMapCounty) {
-            geography = `${state.selectedMapCounty} County, ${cleanState}`;
-          }
-        }
-        geography = geography.toUpperCase();
-
-        let timeframe = 'All-Time';
-        let beforeCount = 0;
-        let addedCount = 0;
-        let afterCount = 0;
-        const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
-
-        // Filter milestones to geography context
-        const geoMilestones = !isStateLevel && state.selectedMapCounty
-          ? state.tickMilestones.filter(m => m.county === state.selectedMapCounty)
-          : (state.filterState
-             ? state.tickMilestones.filter(m => {
-                 const cleanState = cleanStateCode(state.filterState);
-                 return m.state === state.filterState || m.state.endsWith(cleanState);
-               })
-             : state.tickMilestones);
-
-        if (isTimeframeActive) {
-          let startStr = 'Start';
-          if (state.tickDateStart) {
-            const parts = state.tickDateStart.split('-');
-            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-            startStr = formatDateLabel(dateObj);
-          }
-          let endStr = 'Present';
-          if (state.tickDateEnd) {
-            const parts = state.tickDateEnd.split('-');
-            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-            endStr = formatDateLabel(dateObj);
-          }
-          timeframe = `${startStr} to ${endStr}`;
-
-          beforeCount = state.tickDateStart
-            ? geoMilestones.filter(m => m.date < state.tickDateStart).length
-            : 0;
-          afterCount = state.tickDateEnd
-            ? geoMilestones.filter(m => m.date <= state.tickDateEnd).length
-            : geoMilestones.length;
-          addedCount = geoMilestones.filter(m => {
-            if (state.tickDateStart && m.date < state.tickDateStart) return false;
-            if (state.tickDateEnd && m.date > state.tickDateEnd) return false;
-            return true;
-          }).length;
-        }
-
-        const dataAsOf = DOM.statDateAsOf ? DOM.statDateAsOf.textContent : '—';
-        const maxVal = DOM.mapLegendMax ? DOM.mapLegendMax.textContent : 'Max';
-
-        let speciesCountText = '';
-        if (!isStateLevel && state.selectedMapCounty) {
-          speciesCountText = `${geoMilestones.length.toLocaleString()} Species Ticked`;
-        } else {
-          speciesCountText = `${geoMilestones.length.toLocaleString()} Total Ticks`;
-        }
-
-        const colorMode = DOM.mapColorMode ? DOM.mapColorMode.value : 'total';
-        const modeTitle = colorMode === 'added' ? 'TIMEFRAME ADDITIONS' : 'TOTAL LIFETIME TICKS';
-
-        let svgData = new XMLSerializer().serializeToString(svgEl);
-        // Resolve CSS variables inside serialized SVG for standalone image rendering
-        svgData = svgData.replace(/var\(--color-accent\)/g, '#14b8a6');
-        svgData = svgData.replace(/var\(--color-border-subtle\)/g, 'rgba(255, 255, 255, 0.08)');
-        const canvas = document.createElement('canvas');
-        canvas.width = 2000;
-        canvas.height = 1600;
-        const ctx2 = canvas.getContext('2d');
-
-        // Draw dark background
-        ctx2.fillStyle = '#0f1729';
-        ctx2.fillRect(0, 0, canvas.width, canvas.height);
-
-        const img = new Image();
-        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-        const url = URL.createObjectURL(svgBlob);
-
-        img.onload = () => {
-          try {
-            const exportInfographic = DOM.toggleExportInfographic ? DOM.toggleExportInfographic.checked : true;
-
-            if (exportInfographic) {
-              // Draw map SVG much larger (occupying 1800x1430 starting at Y = 130)
-              ctx2.drawImage(img, 100, 130, 1800, 1430);
-              URL.revokeObjectURL(url);
-
-              // Draw Metadata Header (Left-aligned)
-              ctx2.fillStyle = '#38bdf8';
-              ctx2.font = '600 22px monospace';
-              ctx2.textAlign = 'left';
-              ctx2.fillText(`BIRDING TRACKER // ${modeTitle}`, 100, 50);
-
-              ctx2.fillStyle = '#ffffff';
-              ctx2.font = '700 48px system-ui, -apple-system, sans-serif';
-              ctx2.fillText(geography, 100, 110);
-
-              // Draw Metadata Header (Right-aligned in top right)
-              ctx2.textAlign = 'right';
-              ctx2.fillStyle = '#38bdf8';
-              ctx2.font = '700 36px system-ui, -apple-system, sans-serif';
-              ctx2.fillText(speciesCountText, 1900, 75);
-
-              ctx2.fillStyle = '#94a3b8';
-              ctx2.font = '600 22px system-ui, -apple-system, sans-serif';
-              ctx2.fillText(`Data as of: ${dataAsOf}`, 1900, 115);
-
-              // Horizontal divider line
-              ctx2.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-              ctx2.lineWidth = 2;
-              ctx2.beginPath();
-              ctx2.moveTo(100, 150);
-              ctx2.lineTo(1900, 150);
-              ctx2.stroke();
-
-              // CONDITIONAL: Timeframe Box on the right of the map (only drawn if active)
-              if (isTimeframeActive) {
-                const boxX = 1400;
-                const boxY = 180;
-                const boxW = 500;
-                const boxH = 320;
-
-                // Draw glassmorphic Timeframe box
-                ctx2.fillStyle = '#0f1729';
-                ctx2.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-                ctx2.lineWidth = 2;
-                ctx2.fillRect(boxX, boxY, boxW, boxH);
-                ctx2.strokeRect(boxX, boxY, boxW, boxH);
-
-                // Timeframe text drawings
-                ctx2.textAlign = 'left';
-                ctx2.fillStyle = '#94a3b8';
-                ctx2.font = '600 18px system-ui, -apple-system, sans-serif';
-                ctx2.fillText('TIMEFRAME ANALYSIS', boxX + 30, boxY + 45);
-
-                ctx2.fillStyle = '#ffffff';
-                ctx2.font = '700 24px system-ui, -apple-system, sans-serif';
-                ctx2.fillText(timeframe, boxX + 30, boxY + 85);
-
-                // Comma-formatted values aligned left/right
-                ctx2.font = '600 22px system-ui, -apple-system, sans-serif';
-                
-                // Before
-                ctx2.fillStyle = '#94a3b8';
-                ctx2.textAlign = 'left';
-                ctx2.fillText('Before ticks:', boxX + 30, boxY + 145);
-                ctx2.fillStyle = '#ffffff';
-                ctx2.textAlign = 'right';
-                ctx2.fillText(beforeCount.toLocaleString(), boxX + 470, boxY + 145);
-
-                // Gained
-                ctx2.fillStyle = '#14b8a6';
-                ctx2.textAlign = 'left';
-                ctx2.fillText('Ticks gained:', boxX + 30, boxY + 200);
-                ctx2.textAlign = 'right';
-                ctx2.fillText(`+${addedCount.toLocaleString()}`, boxX + 470, boxY + 200);
-
-                // After
-                ctx2.fillStyle = '#a78bfa';
-                ctx2.textAlign = 'left';
-                ctx2.fillText('After ticks:', boxX + 30, boxY + 255);
-                ctx2.fillStyle = '#ffffff';
-                ctx2.textAlign = 'right';
-                ctx2.fillText(afterCount.toLocaleString(), boxX + 470, boxY + 255);
-              }
-
-              // Legend (Drawn at the far bottom-left, completely off the map bounding area)
-              ctx2.textAlign = 'left';
-              ctx2.fillStyle = '#94a3b8';
-              ctx2.font = '600 18px system-ui, -apple-system, sans-serif';
-              ctx2.fillText('HEATMAP SCALE', 100, 1490);
-
-              // Draw gradient bar
-              const grad = ctx2.createLinearGradient(100, 0, 420, 0);
-              grad.addColorStop(0, 'hsl(55, 100%, 65%)');
-              grad.addColorStop(0.5, 'hsl(28, 100%, 55%)');
-              grad.addColorStop(1, 'hsl(0, 100%, 48%)');
-              ctx2.fillStyle = grad;
-              ctx2.fillRect(100, 1510, 320, 16);
-
-              // Draw legend labels
-              ctx2.fillStyle = '#94a3b8';
-              ctx2.font = '700 20px system-ui, -apple-system, sans-serif';
-              ctx2.textAlign = 'right';
-              ctx2.fillText('0', 80, 1525);
-              ctx2.textAlign = 'left';
-              ctx2.fillText(maxVal, 435, 1525);
-            } else {
-              // Draw plain map centered and filling almost the entire canvas
-              ctx2.drawImage(img, 60, 48, 1880, 1504);
-              URL.revokeObjectURL(url);
-            }
-
-            // Export trigger
-            const link = document.createElement('a');
-            document.body.appendChild(link);
-            link.download = constructDescriptiveFilename('png');
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            document.body.removeChild(link);
-            showToast('Map image downloaded!', 'success');
-          } catch (securityError) {
-            console.warn('Canvas export tainted or restricted, falling back to SVG download:', securityError);
-            triggerDirectSvgDownload(svgData);
-          }
-        };
- 
-        img.onerror = (err) => {
-          console.warn('Failed to load SVG into image, falling back to direct SVG download:', err);
-          triggerDirectSvgDownload(svgData);
-        };
- 
-        img.src = url;
+        downloadMapPNG(false);
       });
     }
- 
-    function constructDescriptiveFilename(extension) {
-      const levelStr = DOM.tickLevel && DOM.tickLevel.value === 'state' ? 'state-level' : 'county-level';
-      
-      let geoStr = 'us';
-      if (state.filterState) {
-        const cleanState = cleanStateCode(state.filterState).toLowerCase();
-        geoStr = cleanState;
-        const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
-        if (!isStateLevel && state.selectedMapCounty) {
-          const cleanCounty = state.selectedMapCounty.toLowerCase().replace(/[^a-z0-9]/g, '-');
-          geoStr = `${cleanState}-${cleanCounty}-county`;
-        }
-      }
 
-      const colorMode = DOM.mapColorMode ? DOM.mapColorMode.value : 'total';
-      const modeStr = colorMode === 'added' ? 'timeframe-additions' : 'lifetime-totals';
-
-      let timeframeStr = 'all-time';
-      if (state.tickDateStart || state.tickDateEnd) {
-        const startVal = state.tickDateStart ? state.tickDateStart : 'start';
-        const endVal = state.tickDateEnd ? state.tickDateEnd : 'present';
-        timeframeStr = `${startVal}_to_${endVal}`;
-      }
-
-      const exportInfographic = DOM.toggleExportInfographic ? DOM.toggleExportInfographic.checked : true;
-      const suffixStr = exportInfographic ? 'infographic' : 'plain';
-
-      return `birding-tracker-${levelStr}-${geoStr}-${modeStr}-${timeframeStr}-${suffixStr}.${extension}`;
+    // Download rich infographic layout
+    if (DOM.btnDownloadInfographic) {
+      DOM.btnDownloadInfographic.addEventListener('click', () => {
+        downloadMapPNG(true);
+      });
     }
 
-    function triggerDirectSvgDownload(svgData) {
-      const link = document.createElement('a');
-      document.body.appendChild(link);
-      link.download = constructDescriptiveFilename('svg');
-      link.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
-      link.click();
-      document.body.removeChild(link);
-      showToast('Browser security restricted PNG; downloaded SVG map instead!', 'warning');
-    }
+
 
     // Download table as CSV
     if (DOM.btnDownloadCsv) {
@@ -4064,11 +4099,13 @@
     }
 
     // Dependent exclusion county dropdown populator
+    // Dependent exclusion county dropdown populator & import card updater
     if (DOM.exclusionState) {
       DOM.exclusionState.addEventListener('change', () => {
         const selectedState = DOM.exclusionState.value;
         if (!selectedState) {
           DOM.exclusionCounty.innerHTML = '<option value="">All Counties</option>';
+          updateSettingsImportCard();
           return;
         }
         const counties = [...new Set(state.regions
@@ -4082,6 +4119,91 @@
           opt.value = c;
           opt.textContent = c;
           DOM.exclusionCounty.appendChild(opt);
+        }
+        updateSettingsImportCard();
+      });
+    }
+
+    if (DOM.exclusionCounty) {
+      DOM.exclusionCounty.addEventListener('change', () => {
+        updateSettingsImportCard();
+      });
+    }
+
+    // eBird Regional Life List CSV File Importer
+    if (DOM.inputEbirdLifelistCsv) {
+      DOM.inputEbirdLifelistCsv.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const stateVal = DOM.exclusionState ? DOM.exclusionState.value : '';
+        const countyVal = DOM.exclusionCounty ? DOM.exclusionCounty.value : '';
+
+        if (!stateVal) {
+          showToast('Please select a State/Province first.', 'error');
+          return;
+        }
+
+        showLoading('Parsing eBird Life List...');
+        try {
+          const text = await file.text();
+          const rows = await parseEbirdLifeListCSV(text);
+
+          let addedCount = 0;
+          let skippedCount = 0;
+
+          for (const row of rows) {
+            const category = (row['Category'] || row['CATEGORY'] || '').trim().toLowerCase();
+            const commonName = (row['Common Name'] || row['COMMON NAME'] || row['CommonName'] || '').trim();
+            const countableRaw = (row['Countable'] || row['COUNTABLE'] || row['Is Countable'] || '1').trim();
+
+            if (!commonName) continue;
+
+            // Skip non-species (spuh, slash, hybrid, domestic, etc.)
+            if (category && category !== 'species') {
+              continue;
+            }
+
+            // If countable is '0', 'no', 'false', then it's a non-countable exotic
+            const isNonCountableEbird = (countableRaw === '0' || countableRaw.toLowerCase() === 'no' || countableRaw.toLowerCase() === 'false');
+
+            if (isNonCountableEbird) {
+              // Add to userExclusions if it doesn't already exist
+              const exists = state.userExclusions.some(rule => 
+                rule.commonName.toLowerCase() === commonName.toLowerCase() &&
+                rule.state === stateVal &&
+                rule.county === countyVal
+              );
+
+              if (!exists) {
+                const newRule = {
+                  id: `usr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  commonName,
+                  state: stateVal,
+                  county: countyVal
+                };
+                state.userExclusions.push(newRule);
+                addedCount++;
+              } else {
+                skippedCount++;
+              }
+            }
+          }
+
+          if (addedCount > 0) {
+            await DB.saveSetting('userExclusions', state.userExclusions);
+            renderUserExclusions();
+            showToast(`Imported ${addedCount} non-countable exotics for this region!`, 'success');
+            if (state.isDataLoaded) refreshGrid();
+          } else {
+            showToast('No new non-countable exotics found in the uploaded file.', 'info');
+          }
+        } catch (err) {
+          console.error('Error importing eBird life list:', err);
+          showToast('Failed to import life list: ' + err.message, 'error');
+        } finally {
+          hideLoading();
+          DOM.inputEbirdLifelistCsv.value = '';
         }
       });
     }
