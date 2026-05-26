@@ -1451,24 +1451,7 @@
   }
 
   function updateAlerts() {
-    const pastDueSpecies = state.speciesData.filter(sp => sp.isPastDue);
-
-    if (pastDueSpecies.length > 0) {
-      DOM.alertsPanel.classList.add('is-open');
-      DOM.alertsList.innerHTML = '';
-      const fragment = document.createDocumentFragment();
-      for (const sp of pastDueSpecies) {
-        const li = document.createElement('li');
-        const tag = document.createElement('span');
-        tag.className = 'alert-tag';
-        tag.textContent = `⚠️ ${sp.commonName} (since ${sp.earliestLabel})`;
-        li.appendChild(tag);
-        fragment.appendChild(li);
-      }
-      DOM.alertsList.appendChild(fragment);
-    } else {
-      DOM.alertsPanel.classList.remove('is-open');
-    }
+    // Deprecated: Alerts panel removed in favor of in-grid target highlights
   }
 
   /* -----------------------------------------------------------------------
@@ -3480,7 +3463,7 @@
       state.observations = [];
       state.speciesData = [];
       state.isDataLoaded = false;
-      DOM.alertsPanel.classList.remove('is-open');
+      if (DOM.alertsPanel) DOM.alertsPanel.classList.remove('is-open');
       DOM.importProgress.style.display = 'none';
       DOM.importStatus.style.display = 'none';
       DOM.statTotalRecords.textContent = '0';
@@ -4623,18 +4606,20 @@
     });
 
     // Alerts toggle
-    DOM.btnToggleAlerts.addEventListener('click', () => {
-      const panel = DOM.alertsPanel;
-      if (panel) {
-        if (panel.classList.contains('is-open')) {
-          panel.classList.remove('is-open');
-          DOM.btnToggleAlerts.textContent = 'Show';
-        } else {
-          panel.classList.add('is-open');
-          DOM.btnToggleAlerts.textContent = 'Hide';
+    if (DOM.btnToggleAlerts) {
+      DOM.btnToggleAlerts.addEventListener('click', () => {
+        const panel = DOM.alertsPanel;
+        if (panel) {
+          if (panel.classList.contains('is-open')) {
+            panel.classList.remove('is-open');
+            DOM.btnToggleAlerts.textContent = 'Show';
+          } else {
+            panel.classList.add('is-open');
+            DOM.btnToggleAlerts.textContent = 'Hide';
+          }
         }
-      }
-    });
+      });
+    }
 
     // Tab Navigation
     DOM.tabYoY.addEventListener('click', () => switchTab('yoy'));
