@@ -74,6 +74,12 @@
         <select id="filter-county" class="control-select" title="Filter by County">
           <option value="">All Counties</option>
         </select>
+        <select id="filter-custom-group" class="control-select" style="display: none; border-color: var(--color-accent);" title="Filter by Custom Region Group">
+          <option value="">All Custom Groups</option>
+        </select>
+        <button id="btn-set-default-region" class="btn btn--secondary btn--sm" style="display: none; width: 100%; margin-top: var(--space-1);" title="Set the current region as the default startup region">
+          📌 Set as default region
+        </button>
       </div>
 
       <!-- Time Travel -->
@@ -149,10 +155,6 @@
           <span>Targets</span>
           <span class="stat-chip__value" id="stat-bar-targets">0</span>
         </div>
-        <div class="stat-chip stat-chip--warning">
-          <span>⚠️ Past Due</span>
-          <span class="stat-chip__value" id="stat-bar-pastdue">0</span>
-        </div>
         <div class="stat-chip">
           <span>Year</span>
           <span class="stat-chip__value" id="stat-bar-year">—</span>
@@ -161,17 +163,6 @@
           <span>Sim Date</span>
           <span class="stat-chip__value" id="stat-bar-simdate">—</span>
         </div>
-      </div>
-
-      <!-- Alerts Panel -->
-      <div class="alerts-panel" id="alerts-panel">
-        <div class="alerts-panel__header">
-          <span class="alerts-panel__title">⚠️ Past Due Scouting Alerts</span>
-          <button id="btn-toggle-alerts" class="btn btn--ghost btn--sm">Hide</button>
-        </div>
-        <ul class="alerts-panel__list" id="alerts-list">
-          <!-- Populated dynamically -->
-        </ul>
       </div>
 
       <!-- Empty State (shown when no data loaded) -->
@@ -194,6 +185,19 @@
             🧪 Quick Start with Mock Data
           </button>
         </div>
+
+        <!-- Step-by-Step Instructions -->
+        <div style="margin-top: var(--space-6); max-width: 500px; text-align: left; background: var(--color-bg-secondary); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: var(--shadow-md);">
+          <h4 style="font-family: var(--font-family-display); font-size: var(--font-size-sm); font-weight: 600; color: var(--color-text-primary); margin-bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-2);">
+            📥 How to get your eBird data:
+          </h4>
+          <ol style="font-size: 11px; color: var(--color-text-secondary); padding-left: 20px; line-height: 1.6; display: flex; flex-direction: column; gap: var(--space-1);">
+            <li>Go to eBird's request page: <a href="https://ebird.org/downloadMyData" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent); font-weight: 600; text-decoration: underline;">ebird.org/downloadMyData</a>.</li>
+            <li>Click <strong>Request Data Transfer</strong>. eBird will package your lifetime checklist observations (takes a few hours to a day).</li>
+            <li>Once you receive the eBird email, download the zip archive.</li>
+            <li>Drag & drop the zip file or CSV directly into the box above to analyze!</li>
+          </ol>
+        </div>
         <div class="progress-bar" id="import-progress" style="display: none; max-width: 500px;">
           <div class="progress-bar__fill" id="import-progress-fill"></div>
         </div>
@@ -202,10 +206,23 @@
 
       <!-- Data Grid (shown when data is loaded) -->
       <div class="grid-wrapper" id="grid-wrapper" style="display: none;">
+        <div id="grid-header-banner" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-3) var(--space-4); background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border-subtle); margin-bottom: 1px;">
+          <div style="display: flex; align-items: center; gap: var(--space-3);">
+            <span style="font-size: var(--font-size-md); font-weight: 600; color: var(--color-text-primary); font-family: var(--font-family-display);" id="banner-region-text">🌍 Region: All Regions</span>
+            <span id="banner-custom-group-badge" style="display: none; padding: 2px 8px; font-size: 10px; font-weight: bold; background: var(--color-accent-soft); border: 1px solid var(--color-accent); color: var(--color-accent); border-radius: var(--radius-full);">Custom Group</span>
+          </div>
+          <div style="display: flex; gap: var(--space-4); font-size: var(--font-size-xs); color: var(--color-text-secondary); font-family: var(--font-family-mono);">
+            <span>Target Year: <strong id="banner-year-text" style="color: var(--color-text-primary);">—</strong></span>
+            <span>Sim Date: <strong id="banner-date-text" style="color: var(--color-text-primary);">—</strong></span>
+          </div>
+        </div>
         <table class="data-grid" id="data-grid">
           <thead>
             <tr id="grid-header-row">
               <!-- Header cells dynamically populated -->
+            </tr>
+            <tr id="grid-totals-row" style="background: var(--color-bg-secondary); font-size: 11px; font-weight: bold; border-bottom: 1.5px solid var(--color-border);">
+              <!-- Year list totals populated dynamically -->
             </tr>
           </thead>
           <tbody id="grid-body">
@@ -219,7 +236,15 @@
         <!-- Top Stats Cards -->
         <div class="tick-stats-grid">
           <div class="tick-card">
-            <span class="tick-card__label" id="tick-stat-total-label">🗺️ Total County Ticks</span>
+            <span class="tick-card__label" id="tick-stat-total-label" style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);">
+              <span>🗺️ Total County Ticks</span>
+              <span class="info-tooltip-container" style="position: relative; cursor: help;">
+                ℹ️
+                <span class="info-tooltip-text">
+                  This total may differ from your official eBird totals because non-countable exotics (e.g. Whooper Swan, Mandarin Duck, and any custom exclusions set in Settings) are automatically excluded.
+                </span>
+              </span>
+            </span>
             <span class="tick-card__value" id="tick-stat-total">0</span>
             <span class="tick-card__sub" id="tick-stat-total-desc">Across all subregions</span>
           </div>
@@ -430,6 +455,107 @@
                   📂 Import eBird CSV File
                   <input type="file" id="input-ebird-lifelist-csv" accept=".csv" style="display: none;" />
                 </label>
+              </div>
+            </div>
+
+            <!-- Scouting Highlights Preferences -->
+            <div class="settings-card" id="settings-highlighting-card" style="margin-top: var(--space-4);">
+              <h3 class="settings-card__title">🎨 Target Scouting Highlights</h3>
+              <p style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
+                Highlight targets not yet seen in the target year based on whether they are before, during, or after their historical sighting window.
+              </p>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="control-toggle" title="When enabled, unseen target species are highlighted based on their historical sighting window.">
+                  <input type="checkbox" id="chk-enable-highlights" checked />
+                  <span class="control-toggle__track"></span>
+                  Enable scouting window highlighting
+                </label>
+              </div>
+            </div>
+
+            <!-- Backup & Restore Preferences -->
+            <div class="settings-card" id="settings-backup-card" style="margin-top: var(--space-4);">
+              <h3 class="settings-card__title">💾 Backup & Restore Preferences</h3>
+              <p style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
+                Configure options when exporting or importing your application configuration, exotics exclusions, and species targets.
+              </p>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="control-toggle" title="When enabled, exported state files will include all loaded eBird observations in addition to settings and targets.">
+                  <input type="checkbox" id="chk-backup-include-data" />
+                  <span class="control-toggle__track"></span>
+                  Package eBird observations in exports
+                </label>
+              </div>
+            </div>
+
+            <!-- Default Startup Region Preference -->
+            <div class="settings-card" id="settings-default-region-card" style="margin-top: var(--space-4);">
+              <h3 class="settings-card__title">📌 Default Startup Region</h3>
+              <p id="settings-default-region-status" style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
+                No default startup region configured.
+              </p>
+              <button id="btn-clear-default-region" class="btn btn--danger btn--sm" style="display: none; width: 100%;">
+                🗑️ Clear Default Region
+              </button>
+            </div>
+
+            <!-- Custom Region Groupings Card -->
+            <div class="settings-card" id="settings-custom-groups-card" style="margin-top: var(--space-4);">
+              <h3 class="settings-card__title">🗺️ Custom Region Groupings</h3>
+              <p style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
+                Create custom county groups within a state (e.g. "Southern WI"). Select a state to draw visually on the map.
+              </p>
+              
+              <div class="settings-form">
+                <div class="form-group">
+                  <label for="group-name-input" class="form-label">Group Name</label>
+                  <input type="text" id="group-name-input" class="control-input" placeholder="e.g., Southern Wisconsin" autocomplete="off" />
+                </div>
+                <div class="form-group">
+                  <label for="group-state-select" class="form-label">State / Province</label>
+                  <select id="group-state-select" class="control-select">
+                    <option value="">Select State</option>
+                  </select>
+                </div>
+                
+                <!-- SVG map container for counties selection -->
+                <div id="group-map-container" style="display: none; width: 100%; height: 300px; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-md); position: relative; margin-top: var(--space-2); overflow: hidden;">
+                  <svg id="group-svg-map" style="width: 100%; height: 100%; display: block;" viewBox="0 0 500 400">
+                    <g id="group-map-paths"></g>
+                  </svg>
+                  <div id="group-map-tooltip" style="position: absolute; display: none; background: var(--color-bg-secondary); border: 1px solid var(--color-accent); border-radius: var(--radius-sm); padding: 4px 8px; font-size: 10px; pointer-events: none; z-index: 10;"></div>
+                </div>
+
+                <div id="group-selected-container" style="display: none; margin-top: var(--space-3);">
+                  <label class="form-label">Selected Counties</label>
+                  <div id="group-selected-list-box" style="display: flex; flex-wrap: wrap; gap: var(--space-1); max-height: 100px; overflow-y: auto; padding: var(--space-2); background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: var(--radius-sm);">
+                    <!-- Badges populated dynamically -->
+                  </div>
+                </div>
+
+                <button id="btn-save-custom-group" class="btn btn--primary" style="width: 100%; margin-top: var(--space-3);" disabled>
+                  💾 Save Custom Group
+                </button>
+              </div>
+
+              <!-- List of Saved Custom Groups -->
+              <div style="margin-top: var(--space-5);">
+                <h4 style="font-family: var(--font-family-display); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); margin-bottom: var(--space-2);">Saved Custom Groups</h4>
+                <div class="settings-list-wrapper" style="max-height: 200px; overflow-y: auto;">
+                  <table class="settings-table">
+                    <thead>
+                      <tr>
+                        <th>Group Name</th>
+                        <th>State</th>
+                        <th style="max-width: 120px;">Counties</th>
+                        <th style="text-align: right; width: 60px;">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="settings-custom-groups-list">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>

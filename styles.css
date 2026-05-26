@@ -2326,5 +2326,110 @@ body {
   }
 }
 
+/* ==========================================================================
+   Multi-Feature Upgrades Additions
+   ========================================================================== */
+
+/* YoY Column Widths Stabilization (Component E) */
+.data-grid th[data-key^="year-"], 
+.data-grid td.year-check {
+  width: 85px !important;
+  min-width: 85px !important;
+  text-align: center;
+}
+.data-grid {
+  table-layout: auto;
+}
+
+/* Target Scouting Row Highlights & Column Locks (Component D) */
+.data-grid tbody tr.row-window-before {
+  background: rgba(59, 130, 246, 0.04) !important; /* Faint blue */
+}
+.data-grid tbody tr.row-window-before:hover {
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+.data-grid tbody tr.row-window-before td:nth-child(1),
+.data-grid tbody tr.row-window-before td:nth-child(2) {
+  background: hsl(220, 30%, 9%) !important; /* Slightly blue tint dark background */
+}
+.data-grid tbody tr.row-window-before:hover td:nth-child(1),
+.data-grid tbody tr.row-window-before:hover td:nth-child(2) {
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+.data-grid tbody tr.row-window-active {
+  background: rgba(20, 184, 166, 0.08) !important; /* Faint teal */
+  border-left: 3px solid var(--color-accent);
+}
+.data-grid tbody tr.row-window-active:hover {
+  background: rgba(20, 184, 166, 0.12) !important;
+}
+.data-grid tbody tr.row-window-active td:nth-child(1),
+.data-grid tbody tr.row-window-active td:nth-child(2) {
+  background: hsl(160, 25%, 8%) !important; /* Slightly green/teal tint dark background */
+}
+.data-grid tbody tr.row-window-active:hover td:nth-child(1),
+.data-grid tbody tr.row-window-active:hover td:nth-child(2) {
+  background: rgba(20, 184, 166, 0.12) !important;
+}
+
+.data-grid tbody tr.row-window-after {
+  background: rgba(245, 158, 11, 0.04) !important; /* Faint amber/bronze */
+}
+.data-grid tbody tr.row-window-after:hover {
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+.data-grid tbody tr.row-window-after td:nth-child(1),
+.data-grid tbody tr.row-window-after td:nth-child(2) {
+  background: hsl(38, 20%, 9%) !important; /* Slightly amber tint dark background */
+}
+.data-grid tbody tr.row-window-after:hover td:nth-child(1),
+.data-grid tbody tr.row-window-after:hover td:nth-child(2) {
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+/* Premium CSS Hover Tooltip (Component F) */
+.info-tooltip-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  transition: color var(--transition-fast);
+}
+.info-tooltip-container:hover {
+  color: var(--color-accent);
+}
+
+.info-tooltip-text {
+  visibility: hidden;
+  position: absolute;
+  bottom: 125%;
+  right: 0;
+  transform: translateX(20%);
+  width: 260px;
+  background: var(--color-bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  text-align: left;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  line-height: 1.4;
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity var(--transition-base), visibility var(--transition-base);
+  pointer-events: none;
+}
+
+.info-tooltip-container:hover .info-tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+
 
 

@@ -83,6 +83,12 @@
     sortColumn: 'taxonomicOrder',
     sortDirection: 'asc',
     isDataLoaded: false,
+    enableHighlights: true,
+    backupIncludeData: false,
+    defaultRegion: null,
+    selectedCustomGroup: '',
+    customRegionGroups: [],
+    selectedGroupCounties: new Set(),
 
     // Tick Explorer State
     activeTab: 'yoy',
@@ -200,6 +206,21 @@
     settingsImportCard: $('settings-import-card'),
     settingsImportRegionLabel: $('settings-import-region-label'),
     inputEbirdLifelistCsv: $('input-ebird-lifelist-csv'),
+    chkBackupIncludeData: $('chk-backup-include-data'),
+    chkEnableHighlights: $('chk-enable-highlights'),
+    btnSetDefaultRegion: $('btn-set-default-region'),
+    settingsDefaultRegionStatus: $('settings-default-region-status'),
+    btnClearDefaultRegion: $('btn-clear-default-region'),
+    filterCustomGroup: $('filter-custom-group'),
+    groupNameInput: $('group-name-input'),
+    groupStateSelect: $('group-state-select'),
+    groupMapContainer: $('group-map-container'),
+    groupSvgMap: $('group-svg-map'),
+    groupMapPaths: $('group-map-paths'),
+    groupSelectedContainer: $('group-selected-container'),
+    groupSelectedListBox: $('group-selected-list-box'),
+    btnSaveCustomGroup: $('btn-save-custom-group'),
+    settingsCustomGroupsList: $('settings-custom-groups-list'),
   };
 
   /* -----------------------------------------------------------------------
@@ -588,6 +609,9 @@
 
       const MOCK_SPECIES = [
         // Residents
+        { common: 'European Robin', scientific: 'Erithacus rubecula', order: 80, resident: true },
+        { common: 'Eurasian Blue Tit', scientific: 'Cyanistes caeruleus', order: 81, resident: true },
+        { common: 'Common Blackbird', scientific: 'Turdus merula', order: 82, resident: true },
         { common: 'Northern Cardinal', scientific: 'Cardinalis cardinalis', order: 100, resident: true },
         { common: 'Blue Jay', scientific: 'Cyanocitta cristata', order: 101, resident: true },
         { common: 'American Crow', scientific: 'Corvus brachyrhynchos', order: 102, resident: true },
@@ -657,15 +681,26 @@
       ];
 
       const YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
-      const STATE = 'US-WI';
       const LOCATIONS = [
-        { name: 'Pheasant Branch Conservancy', id: 'L123456', lat: 43.107, lng: -89.529, county: 'Dane' },
-        { name: 'UW Arboretum', id: 'L234567', lat: 43.041, lng: -89.427, county: 'Dane' },
-        { name: 'Picnic Point', id: 'L345678', lat: 43.089, lng: -89.419, county: 'Dane' },
-        { name: 'Governor Nelson State Park', id: 'L456789', lat: 43.152, lng: -89.512, county: 'Dane' },
-        { name: 'Cherokee Marsh', id: 'L567890', lat: 43.140, lng: -89.362, county: 'Dane' },
-        { name: 'Swan Lake WA', id: 'L678901', lat: 43.413, lng: -89.315, county: 'Columbia' },
-        { name: 'Mud Lake WA', id: 'L789012', lat: 43.466, lng: -89.359, county: 'Columbia' },
+        // US-WI
+        { name: 'Pheasant Branch Conservancy', id: 'L123456', lat: 43.107, lng: -89.529, state: 'US-WI', county: 'Dane' },
+        { name: 'UW Arboretum', id: 'L234567', lat: 43.041, lng: -89.427, state: 'US-WI', county: 'Dane' },
+        { name: 'Swan Lake WA', id: 'L678901', lat: 43.413, lng: -89.315, state: 'US-WI', county: 'Columbia' },
+        
+        // US-MN
+        { name: 'Minneapolis Chain of Lakes', id: 'L111111', lat: 44.960, lng: -93.300, state: 'US-MN', county: 'Hennepin' },
+        { name: 'Minnesota River Valley NWR', id: 'L222222', lat: 44.800, lng: -93.200, state: 'US-MN', county: 'Hennepin' },
+        { name: 'Como Park', id: 'L333333', lat: 44.980, lng: -93.150, state: 'US-MN', county: 'Ramsey' },
+        
+        // CA-ON
+        { name: 'High Park', id: 'L444444', lat: 43.645, lng: -79.463, state: 'CA-ON', county: 'Toronto' },
+        { name: 'Tommy Thompson Park', id: 'L555555', lat: 43.621, lng: -79.338, state: 'CA-ON', county: 'Toronto' },
+        { name: 'Britannia Conservation Area', id: 'L666666', lat: 45.360, lng: -75.800, state: 'CA-ON', county: 'Ottawa' },
+        
+        // GB-ENG
+        { name: 'Hyde Park', id: 'L777777', lat: 51.507, lng: -0.165, state: 'GB-ENG', county: 'Greater London' },
+        { name: 'Richmond Park', id: 'L888888', lat: 51.442, lng: -0.273, state: 'GB-ENG', county: 'Greater London' },
+        { name: 'Surrey Hills AONB', id: 'L999999', lat: 51.200, lng: -0.400, state: 'GB-ENG', county: 'Surrey' },
       ];
 
       const records = [];
@@ -725,7 +760,7 @@
               scientificName: sp.scientific,
               taxonomicOrder: sp.order,
               count: Math.floor(Math.random() * 8) + 1,
-              state: STATE,
+              state: loc.state,
               county: loc.county,
               locationId: loc.id,
               location: loc.name,
@@ -782,10 +817,39 @@
         state.targets.set(t.commonName, t);
       }
 
+      const defaultRegion = await DB.getSetting('defaultRegion');
+      state.defaultRegion = defaultRegion || null;
+
       const savedState = await DB.getSetting('filterState');
       const savedCounty = await DB.getSetting('filterCounty');
-      if (savedState) { state.filterState = savedState; DOM.filterState.value = savedState; }
-      if (savedCounty) { state.filterCounty = savedCounty; DOM.filterCounty.value = savedCounty; }
+      
+      if (savedState) {
+        state.filterState = savedState;
+        DOM.filterState.value = savedState;
+      } else if (state.defaultRegion && state.defaultRegion.state) {
+        state.filterState = state.defaultRegion.state;
+        DOM.filterState.value = state.defaultRegion.state;
+      }
+      
+      if (savedCounty) {
+        state.filterCounty = savedCounty;
+        DOM.filterCounty.value = savedCounty;
+      } else if (state.defaultRegion && state.defaultRegion.county) {
+        state.filterCounty = state.defaultRegion.county;
+        DOM.filterCounty.value = state.defaultRegion.county;
+      }
+
+      const savedBackupIncludeData = await DB.getSetting('backupIncludeData');
+      state.backupIncludeData = savedBackupIncludeData !== null ? savedBackupIncludeData : false;
+      if (DOM.chkBackupIncludeData) DOM.chkBackupIncludeData.checked = state.backupIncludeData;
+
+      const savedEnableHighlights = await DB.getSetting('enableHighlights');
+      state.enableHighlights = savedEnableHighlights !== null ? savedEnableHighlights : true;
+      if (DOM.chkEnableHighlights) DOM.chkEnableHighlights.checked = state.enableHighlights;
+
+      const savedCustomGroups = await DB.getSetting('customRegionGroups');
+      state.customRegionGroups = savedCustomGroups || [];
+      populateCustomGroupFilter();
 
       const savedAggregate = await DB.getSetting('aggregateSubspecies');
       const savedTrueSpecies = await DB.getSetting('showTrueSpeciesOnly');
@@ -807,8 +871,6 @@
           state.filterCounty = '';
         }
       }
-
-
 
       const savedUserExclusions = await DB.getSetting('userExclusions');
       state.userExclusions = savedUserExclusions || [];
@@ -835,6 +897,7 @@
       } else {
         DOM.statDateAsOf.textContent = '—';
       }
+      updateDefaultRegionButton();
       syncViewVisibility();
       if (state.isDataLoaded) {
         await refreshGrid();
@@ -902,12 +965,23 @@
 
     try {
       const filter = {};
-      if (state.filterState) filter.state = state.filterState;
-      if (state.filterCounty) filter.county = state.filterCounty;
+      
+      if (state.selectedCustomGroup) {
+        const activeGroup = (state.customRegionGroups || []).find(g => g.id === state.selectedCustomGroup);
+        if (activeGroup) {
+          filter.state = activeGroup.state;
+          state.observations = await DB.getObservations({ state: activeGroup.state });
+          const countySet = new Set(activeGroup.counties.map(c => c.toLowerCase()));
+          state.observations = state.observations.filter(obs => obs.county && countySet.has(obs.county.toLowerCase()));
+        }
+      } else {
+        if (state.filterState) filter.state = state.filterState;
+        if (state.filterCounty) filter.county = state.filterCounty;
 
-      state.observations = await DB.getObservations(
-        (filter.state || filter.county) ? filter : undefined
-      );
+        state.observations = await DB.getObservations(
+          (filter.state || filter.county) ? filter : undefined
+        );
+      }
 
       computeSpeciesData();
       renderGrid();
@@ -1175,15 +1249,105 @@
       DOM.gridHeaderRow.appendChild(th);
     }
 
+    // Update banner texts (Component E)
+    const bannerRegionText = $('banner-region-text');
+    const bannerCustomGroupBadge = $('banner-custom-group-badge');
+    const bannerYearText = $('banner-year-text');
+    const bannerDateText = $('banner-date-text');
+    
+    if (bannerRegionText) {
+      if (state.selectedCustomGroup) {
+        const activeGroup = (state.customRegionGroups || []).find(g => g.id === state.selectedCustomGroup);
+        bannerRegionText.textContent = `🌍 Region: ${activeGroup ? activeGroup.name : 'Custom Group'}`;
+        if (bannerCustomGroupBadge) bannerCustomGroupBadge.style.display = 'inline-block';
+      } else {
+        const regionStr = state.filterState 
+          ? (state.filterCounty ? `${state.filterCounty} Co., ${state.filterState}` : state.filterState)
+          : 'All Regions';
+        bannerRegionText.textContent = `🌍 Region: ${regionStr}`;
+        if (bannerCustomGroupBadge) bannerCustomGroupBadge.style.display = 'none';
+      }
+    }
+    
+    if (bannerYearText) bannerYearText.textContent = state.targetYear;
+    if (bannerDateText) bannerDateText.textContent = formatDateLabel(state.simDate);
+
+    // Calculate total ticks (checked species) per year (Component E)
+    const yearTotals = {};
+    for (const y of yearsToShow) {
+      yearTotals[y] = 0;
+    }
+    for (const sp of state.speciesData) {
+      for (const y of yearsToShow) {
+        if (sp.yoyChecks[y]) {
+          yearTotals[y]++;
+        }
+      }
+    }
+
+    // Render Yearly Totals row (Component E)
+    const totalsRow = $('grid-totals-row');
+    if (totalsRow) {
+      totalsRow.innerHTML = '';
+      
+      const tdTarget = document.createElement('td');
+      tdTarget.style.cssText = 'padding: 4px var(--space-3); border-bottom: 1.5px solid var(--color-border);';
+      totalsRow.appendChild(tdTarget);
+      
+      const tdLabel = document.createElement('td');
+      tdLabel.style.cssText = 'padding: 4px var(--space-3); font-family: var(--font-family-display); font-weight: 700; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1.5px solid var(--color-border);';
+      tdLabel.textContent = 'Yearly Totals';
+      totalsRow.appendChild(tdLabel);
+      
+      for (const y of yearsToShow) {
+        const tdYear = document.createElement('td');
+        tdYear.className = 'year-check';
+        tdYear.style.cssText = 'padding: 4px var(--space-3); font-weight: 700; font-family: var(--font-family-mono); color: var(--color-accent); border-bottom: 1.5px solid var(--color-border);';
+        tdYear.textContent = yearTotals[y];
+        totalsRow.appendChild(tdYear);
+      }
+      
+      for (let i = 0; i < 4; i++) {
+        const tdEmpty = document.createElement('td');
+        tdEmpty.style.cssText = 'border-bottom: 1.5px solid var(--color-border);';
+        totalsRow.appendChild(tdEmpty);
+      }
+    }
+
     DOM.gridBody.innerHTML = '';
 
     // Use DocumentFragment for performance
     const fragment = document.createDocumentFragment();
+    const simDateDoy = dateToDayOfYear(state.simDate);
 
     for (const sp of state.speciesData) {
       const tr = document.createElement('tr');
-      if (sp.isPastDue) {
-        tr.classList.add('row--past-due');
+      
+      // Target scouting window highlights (Component D)
+      if (sp.isTarget && !sp.seenInTargetYear && state.enableHighlights) {
+        const isWinterWrapping = sp.earliestDoy > sp.latestDoy;
+        let scoutingState = '';
+        if (isWinterWrapping) {
+          if (simDateDoy >= sp.earliestDoy || simDateDoy <= sp.latestDoy) {
+            scoutingState = 'in';
+          } else {
+            const midpoint = (sp.latestDoy + sp.earliestDoy) / 2;
+            if (simDateDoy < midpoint) {
+              scoutingState = 'after';
+            } else {
+              scoutingState = 'before';
+            }
+          }
+        } else {
+          if (simDateDoy >= sp.earliestDoy && simDateDoy <= sp.latestDoy) {
+            scoutingState = 'in';
+          } else if (simDateDoy < sp.earliestDoy) {
+            scoutingState = 'before';
+          } else {
+            scoutingState = 'after';
+          }
+        }
+        tr.classList.add(`row-window-${scoutingState}`);
       } else if (sp.isTarget) {
         tr.classList.add('row--target');
       }
@@ -1249,12 +1413,7 @@
 
       // Status
       const tdStatus = document.createElement('td');
-      if (sp.isPastDue) {
-        const badge = document.createElement('span');
-        badge.className = 'past-due-badge';
-        badge.textContent = '⚠️ Past Due';
-        tdStatus.appendChild(badge);
-      } else if (sp.isTarget && sp.seenInTargetYear) {
+      if (sp.isTarget && sp.seenInTargetYear) {
         const found = document.createElement('span');
         found.style.cssText = 'color: var(--color-success); font-size: var(--font-size-xs); font-weight: 600;';
         found.textContent = '✓ Found';
@@ -3247,6 +3406,11 @@
         filterCounty: state.filterCounty,
       };
 
+      if (state.backupIncludeData) {
+        const observations = await DB.getObservations();
+        exportData.observations = observations;
+      }
+
       const json = JSON.stringify(exportData, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -3268,6 +3432,16 @@
     try {
       const text = await file.text();
       const data = JSON.parse(text);
+
+      if (data.observations) {
+        showLoading('Importing observations from backup...');
+        await DB.clearObservations();
+        const BATCH_SIZE = 10000;
+        for (let i = 0; i < data.observations.length; i += BATCH_SIZE) {
+          const batch = data.observations.slice(i, i + BATCH_SIZE);
+          await DB.putObservations(batch);
+        }
+      }
 
       if (data.targets) {
         await DB.clearTargets();
@@ -3291,6 +3465,8 @@
       await initDashboard();
     } catch (err) {
       showToast('Import error: ' + err.message, 'error');
+    } finally {
+      hideLoading();
     }
   }
 
@@ -3371,6 +3547,18 @@
 
       // Clear county dropdown on load
       DOM.exclusionCounty.innerHTML = '<option value="">All Counties</option>';
+
+      // Populate custom group state selector (Component C)
+      const groupStateSelect = $('group-state-select');
+      if (groupStateSelect) {
+        groupStateSelect.innerHTML = '<option value="">Select State</option>';
+        for (const s of states) {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = s;
+          groupStateSelect.appendChild(opt);
+        }
+      }
     } catch (err) {
       console.error('Error populating settings autocomplete:', err);
     }
@@ -3457,6 +3645,68 @@
       fragmentSys.appendChild(tr);
     }
     DOM.systemExclusionsBody.appendChild(fragmentSys);
+
+    // Render default region status (Component B)
+    if (DOM.settingsDefaultRegionStatus && DOM.btnClearDefaultRegion) {
+      const def = state.defaultRegion;
+      if (def && def.state) {
+        const regionStr = def.county ? `${def.county} County, ${def.state}` : `${def.state}`;
+        DOM.settingsDefaultRegionStatus.textContent = `Current default startup region: ${regionStr}`;
+        DOM.btnClearDefaultRegion.style.display = 'block';
+      } else {
+        DOM.settingsDefaultRegionStatus.textContent = 'No default startup region configured. Use the region filter in the sidebar to set one.';
+        DOM.btnClearDefaultRegion.style.display = 'none';
+      }
+    }
+
+    // Render custom region groups list (Component C)
+    const groupsList = $('settings-custom-groups-list');
+    if (groupsList) {
+      groupsList.innerHTML = '';
+      const groups = state.customRegionGroups || [];
+      if (groups.length === 0) {
+        groupsList.innerHTML = `
+          <tr>
+            <td colspan="4" style="text-align: center; color: var(--color-text-tertiary); font-style: italic; padding: var(--space-4);">
+              No custom groups defined yet.
+            </td>
+          </tr>`;
+      } else {
+        const fragment = document.createDocumentFragment();
+        for (const g of groups) {
+          const tr = document.createElement('tr');
+          
+          const tdName = document.createElement('td');
+          tdName.style.fontWeight = '500';
+          tdName.textContent = g.name;
+          tr.appendChild(tdName);
+          
+          const tdState = document.createElement('td');
+          tdState.className = 'date-cell';
+          tdState.textContent = g.state;
+          tr.appendChild(tdState);
+          
+          const tdCounties = document.createElement('td');
+          tdCounties.style.cssText = 'max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; color: var(--color-text-secondary);';
+          tdCounties.textContent = g.counties.join(', ');
+          tdCounties.title = g.counties.join(', ');
+          tr.appendChild(tdCounties);
+          
+          const tdAction = document.createElement('td');
+          tdAction.style.textAlign = 'right';
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'btn btn--danger btn--xs';
+          deleteBtn.innerHTML = '🗑️';
+          deleteBtn.title = 'Delete custom group';
+          deleteBtn.addEventListener('click', () => handleDeleteCustomGroup(g.id));
+          tdAction.appendChild(deleteBtn);
+          tr.appendChild(tdAction);
+          
+          fragment.appendChild(tr);
+        }
+        groupsList.appendChild(fragment);
+      }
+    }
   }
 
   async function handleAddExclusion(e) {
@@ -3810,6 +4060,292 @@
     showToast('Browser security restricted PNG; downloaded SVG map instead!', 'warning');
   }
 
+  // --- Component B & C: Default Startup Region & Custom Region Groupings Helper Functions ---
+
+  function updateDefaultRegionButton() {
+    if (!DOM.btnSetDefaultRegion) return;
+    
+    const currentState = state.filterState || '';
+    const currentCounty = state.filterCounty || '';
+    
+    if (!currentState || state.selectedCustomGroup) {
+      DOM.btnSetDefaultRegion.style.display = 'none';
+      return;
+    }
+    
+    const def = state.defaultRegion;
+    const isDefault = def && def.state === currentState && (def.county || '') === currentCounty;
+    
+    if (isDefault) {
+      DOM.btnSetDefaultRegion.style.display = 'none';
+    } else {
+      DOM.btnSetDefaultRegion.style.display = 'block';
+      DOM.btnSetDefaultRegion.textContent = '📌 Set as default region';
+      DOM.btnSetDefaultRegion.disabled = false;
+    }
+  }
+
+  function renderCustomGroupMap(stateCode) {
+    const groupMapPaths = $('group-map-paths');
+    const groupMapContainer = $('group-map-container');
+    const groupSelectedContainer = $('group-selected-container');
+    
+    if (!groupMapPaths || !groupMapContainer) return;
+    
+    groupMapPaths.innerHTML = '';
+    
+    if (!stateCode || typeof topojson === 'undefined' || !window.US_ATLAS) {
+      groupMapContainer.style.display = 'none';
+      groupSelectedContainer.style.display = 'none';
+      return;
+    }
+    
+    const cleanState = cleanStateCode(stateCode);
+    const fipsPrefix = STATE_TO_FIPS[cleanState];
+    
+    if (!fipsPrefix) {
+      groupMapContainer.style.display = 'none';
+      groupSelectedContainer.style.display = 'none';
+      return;
+    }
+    
+    try {
+      const countyFeatures = topojson.feature(window.US_ATLAS, window.US_ATLAS.objects.counties).features.filter(
+        f => f.id.startsWith(fipsPrefix)
+      );
+      
+      if (countyFeatures.length === 0) {
+        groupMapContainer.style.display = 'none';
+        groupSelectedContainer.style.display = 'none';
+        return;
+      }
+      
+      groupMapContainer.style.display = 'block';
+      groupSelectedContainer.style.display = 'block';
+      
+      let minX = Infinity, maxX = -Infinity;
+      let minY = Infinity, maxY = -Infinity;
+      
+      for (const feature of countyFeatures) {
+        const geom = feature.geometry;
+        if (!geom) continue;
+        if (geom.type === 'Polygon') {
+          for (const ring of geom.coordinates) {
+            for (const pt of ring) {
+              if (pt[0] < minX) minX = pt[0];
+              if (pt[0] > maxX) maxX = pt[0];
+              if (pt[1] < minY) minY = pt[1];
+              if (pt[1] > maxY) maxY = pt[1];
+            }
+          }
+        } else if (geom.type === 'MultiPolygon') {
+          for (const poly of geom.coordinates) {
+            for (const ring of poly) {
+              for (const pt of ring) {
+                if (pt[0] < minX) minX = pt[0];
+                if (pt[0] > maxX) maxX = pt[0];
+                if (pt[1] < minY) minY = pt[1];
+                if (pt[1] > maxY) maxY = pt[1];
+              }
+            }
+          }
+        }
+      }
+      
+      const w = maxX - minX;
+      const h = maxY - minY;
+      if (w === 0 || h === 0) return;
+      
+      const width = 500;
+      const height = 400;
+      const padding = 10;
+      
+      const scale = Math.min((width - 2 * padding) / w, (height - 2 * padding) / h);
+      const offsetX = (width - w * scale) / 2;
+      const offsetY = (height - h * scale) / 2;
+      
+      const fragment = document.createDocumentFragment();
+      
+      for (const feature of countyFeatures) {
+        const pathStr = getFeaturePath(feature, minX, maxX, minY, maxY, scale, offsetX, offsetY, true);
+        if (!pathStr) continue;
+        
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', pathStr);
+        path.setAttribute('stroke-linejoin', 'round');
+        
+        const name = feature.properties.name || '';
+        const isSelected = state.selectedGroupCounties.has(name);
+        
+        path.style.cursor = 'pointer';
+        path.style.transition = 'all var(--transition-fast)';
+        path.setAttribute('fill', isSelected ? 'var(--color-accent)' : 'rgba(255, 255, 255, 0.08)');
+        path.setAttribute('stroke', isSelected ? 'var(--color-text-primary)' : 'rgba(255, 255, 255, 0.2)');
+        path.setAttribute('stroke-width', isSelected ? '1.5px' : '0.8px');
+        
+        path.addEventListener('mousemove', (e) => {
+          const tooltip = $('group-map-tooltip');
+          if (tooltip) {
+            tooltip.style.display = 'block';
+            tooltip.textContent = name;
+            const containerRect = groupMapContainer.getBoundingClientRect();
+            tooltip.style.left = (e.clientX - containerRect.left + 12) + 'px';
+            tooltip.style.top = (e.clientY - containerRect.top + 12) + 'px';
+          }
+          if (!state.selectedGroupCounties.has(name)) {
+            path.setAttribute('fill', 'rgba(20, 184, 166, 0.25)');
+          }
+        });
+        
+        path.addEventListener('mouseleave', () => {
+          const tooltip = $('group-map-tooltip');
+          if (tooltip) tooltip.style.display = 'none';
+          
+          const isSel = state.selectedGroupCounties.has(name);
+          path.setAttribute('fill', isSel ? 'var(--color-accent)' : 'rgba(255, 255, 255, 0.08)');
+        });
+        
+        path.addEventListener('click', () => {
+          if (state.selectedGroupCounties.has(name)) {
+            state.selectedGroupCounties.delete(name);
+            path.setAttribute('fill', 'rgba(255, 255, 255, 0.08)');
+            path.setAttribute('stroke', 'rgba(255, 255, 255, 0.2)');
+            path.setAttribute('stroke-width', '0.8px');
+          } else {
+            state.selectedGroupCounties.add(name);
+            path.setAttribute('fill', 'var(--color-accent)');
+            path.setAttribute('stroke', 'var(--color-text-primary)');
+            path.setAttribute('stroke-width', '1.5px');
+          }
+          updateGroupSelectedBadges();
+        });
+        
+        fragment.appendChild(path);
+      }
+      
+      groupMapPaths.appendChild(fragment);
+      
+    } catch (err) {
+      console.error('Error drawing custom group map:', err);
+    }
+  }
+
+  function updateGroupSelectedBadges() {
+    const listbox = $('group-selected-list-box');
+    const saveBtn = $('btn-save-custom-group');
+    const nameInput = $('group-name-input');
+    
+    if (!listbox) return;
+    
+    listbox.innerHTML = '';
+    
+    if (state.selectedGroupCounties.size === 0) {
+      listbox.innerHTML = '<span style="font-size: 11px; color: var(--color-text-tertiary); font-style: italic;">No counties selected. Click counties on the map above.</span>';
+      if (saveBtn) saveBtn.disabled = true;
+      return;
+    }
+    
+    const sorted = [...state.selectedGroupCounties].sort();
+    for (const c of sorted) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; font-size: 10px; font-weight: 500; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-primary);';
+      badge.textContent = c;
+      
+      const removeBtn = document.createElement('span');
+      removeBtn.style.cssText = 'cursor: pointer; font-weight: bold; color: var(--color-danger); margin-left: 2px;';
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', () => {
+        state.selectedGroupCounties.delete(c);
+        updateGroupSelectedBadges();
+        const stateCode = $('group-state-select').value;
+        renderCustomGroupMap(stateCode);
+      });
+      
+      badge.appendChild(removeBtn);
+      listbox.appendChild(badge);
+    }
+    
+    const hasName = nameInput && nameInput.value.trim().length > 0;
+    if (saveBtn) {
+      saveBtn.disabled = !hasName;
+    }
+  }
+
+  async function handleSaveCustomGroup() {
+    const nameInput = $('group-name-input');
+    const stateSelect = $('group-state-select');
+    
+    if (!nameInput || !stateSelect) return;
+    
+    const name = nameInput.value.trim();
+    const stateCode = stateSelect.value;
+    
+    if (!name || !stateCode || state.selectedGroupCounties.size === 0) {
+      showToast('Please provide a name, state, and select at least one county.', 'error');
+      return;
+    }
+    
+    const newGroup = {
+      id: 'group-' + Date.now(),
+      name,
+      state: stateCode,
+      counties: [...state.selectedGroupCounties]
+    };
+    
+    state.customRegionGroups = state.customRegionGroups || [];
+    state.customRegionGroups.push(newGroup);
+    
+    await DB.setSetting('customRegionGroups', state.customRegionGroups);
+    showToast(`Custom group "${name}" saved successfully!`, 'success');
+    
+    nameInput.value = '';
+    state.selectedGroupCounties.clear();
+    updateGroupSelectedBadges();
+    renderCustomGroupMap(stateCode);
+    
+    await renderSettings();
+    populateCustomGroupFilter();
+  }
+
+  async function handleDeleteCustomGroup(id) {
+    if (!confirm('Are you sure you want to delete this custom region grouping?')) return;
+    
+    state.customRegionGroups = (state.customRegionGroups || []).filter(g => g.id !== id);
+    await DB.setSetting('customRegionGroups', state.customRegionGroups);
+    showToast('Custom region group deleted.', 'info');
+    
+    if (state.selectedCustomGroup === id) {
+      state.selectedCustomGroup = '';
+      if (DOM.filterCustomGroup) DOM.filterCustomGroup.value = '';
+    }
+    
+    await renderSettings();
+    populateCustomGroupFilter();
+    if (state.isDataLoaded) refreshGrid();
+  }
+
+  function populateCustomGroupFilter() {
+    const filter = $('filter-custom-group');
+    if (!filter) return;
+    
+    filter.innerHTML = '<option value="">All Custom Groups</option>';
+    const groups = state.customRegionGroups || [];
+    
+    if (groups.length === 0) {
+      filter.style.display = 'none';
+      return;
+    }
+    
+    filter.style.display = 'block';
+    for (const g of groups) {
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      opt.textContent = `${g.name} (${g.state})`;
+      if (state.selectedCustomGroup === g.id) opt.selected = true;
+      filter.appendChild(opt);
+    }
+  }
+
   function bindEvents() {
     // Window Resize - Reposition header actions
     window.addEventListener('resize', debounce(repositionHeaderActions, 150));
@@ -3922,9 +4458,16 @@
       state.filterState = e.target.value;
       state.filterCounty = '';
       state.selectedMapCounty = '';
+      
+      // Clear custom group filter when manually selecting state
+      state.selectedCustomGroup = '';
+      if (DOM.filterCustomGroup) DOM.filterCustomGroup.value = '';
+      if (DOM.filterCounty) DOM.filterCounty.disabled = false;
+      
       populateCountyFilter();
       DB.setSetting('filterState', state.filterState);
       DB.setSetting('filterCounty', '');
+      updateDefaultRegionButton();
       if (state.isDataLoaded) refreshGrid();
     });
 
@@ -3932,8 +4475,101 @@
       state.filterCounty = e.target.value;
       state.selectedMapCounty = '';
       DB.setSetting('filterCounty', state.filterCounty);
+      updateDefaultRegionButton();
       if (state.isDataLoaded) refreshGrid();
     });
+
+    if (DOM.filterCustomGroup) {
+      DOM.filterCustomGroup.addEventListener('change', (e) => {
+        state.selectedCustomGroup = e.target.value;
+        if (state.selectedCustomGroup) {
+          state.filterCounty = '';
+          if (DOM.filterCounty) {
+            DOM.filterCounty.value = '';
+            DOM.filterCounty.disabled = true;
+          }
+          const activeGroup = (state.customRegionGroups || []).find(g => g.id === state.selectedCustomGroup);
+          if (activeGroup) {
+            state.filterState = activeGroup.state;
+            DOM.filterState.value = activeGroup.state;
+          }
+        } else {
+          if (DOM.filterCounty) DOM.filterCounty.disabled = false;
+        }
+        updateDefaultRegionButton();
+        if (state.isDataLoaded) refreshGrid();
+      });
+    }
+
+    if (DOM.btnSetDefaultRegion) {
+      DOM.btnSetDefaultRegion.addEventListener('click', async () => {
+        const currentState = state.filterState || '';
+        const currentCounty = state.filterCounty || '';
+        if (!currentState) return;
+        
+        const defaultRegion = { state: currentState, county: currentCounty };
+        await DB.setSetting('defaultRegion', defaultRegion);
+        state.defaultRegion = defaultRegion;
+        
+        DOM.btnSetDefaultRegion.textContent = '✅ Default Region Set!';
+        DOM.btnSetDefaultRegion.disabled = true;
+        setTimeout(() => {
+          updateDefaultRegionButton();
+          if (state.activeTab === 'settings') {
+            renderSettings();
+          }
+        }, 1500);
+        showToast('Default startup region saved successfully!', 'success');
+      });
+    }
+
+    if (DOM.btnClearDefaultRegion) {
+      DOM.btnClearDefaultRegion.addEventListener('click', async () => {
+        await DB.setSetting('defaultRegion', null);
+        state.defaultRegion = null;
+        showToast('Default startup region cleared.', 'info');
+        updateDefaultRegionButton();
+        renderSettings();
+      });
+    }
+
+    if (DOM.chkBackupIncludeData) {
+      DOM.chkBackupIncludeData.addEventListener('change', (e) => {
+        state.backupIncludeData = e.target.checked;
+        DB.setSetting('backupIncludeData', state.backupIncludeData);
+      });
+    }
+
+    if (DOM.chkEnableHighlights) {
+      DOM.chkEnableHighlights.addEventListener('change', (e) => {
+        state.enableHighlights = e.target.checked;
+        DB.setSetting('enableHighlights', state.enableHighlights);
+        if (state.isDataLoaded) renderGrid();
+      });
+    }
+
+    const groupStateSelect = $('group-state-select');
+    if (groupStateSelect) {
+      groupStateSelect.addEventListener('change', (e) => {
+        state.selectedGroupCounties.clear();
+        updateGroupSelectedBadges();
+        renderCustomGroupMap(e.target.value);
+      });
+    }
+
+    if ($('group-name-input')) {
+      $('group-name-input').addEventListener('input', () => {
+        const saveBtn = $('btn-save-custom-group');
+        const nameVal = $('group-name-input').value.trim();
+        if (saveBtn) {
+          saveBtn.disabled = !nameVal || state.selectedGroupCounties.size === 0;
+        }
+      });
+    }
+
+    if ($('btn-save-custom-group')) {
+      $('btn-save-custom-group').addEventListener('click', handleSaveCustomGroup);
+    }
 
     // Year filter
     DOM.filterYear.addEventListener('change', (e) => {
@@ -3989,12 +4625,14 @@
     // Alerts toggle
     DOM.btnToggleAlerts.addEventListener('click', () => {
       const panel = DOM.alertsPanel;
-      if (panel.classList.contains('is-open')) {
-        panel.classList.remove('is-open');
-        DOM.btnToggleAlerts.textContent = 'Show';
-      } else {
-        panel.classList.add('is-open');
-        DOM.btnToggleAlerts.textContent = 'Hide';
+      if (panel) {
+        if (panel.classList.contains('is-open')) {
+          panel.classList.remove('is-open');
+          DOM.btnToggleAlerts.textContent = 'Show';
+        } else {
+          panel.classList.add('is-open');
+          DOM.btnToggleAlerts.textContent = 'Hide';
+        }
       }
     });
 
