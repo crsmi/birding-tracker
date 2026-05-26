@@ -237,54 +237,57 @@
 
         <!-- Date Range Sighting Analyzer -->
         <div class="tick-analyzer-bar">
-          <button id="btn-toggle-analyzer" class="tick-analyzer-bar__header" type="button" aria-expanded="false" title="Toggle Analyzer Controls">
-            <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
-              <div class="tick-analyzer-bar__title">📅 Sighting Timeframe Analyzer <span class="analyzer-toggle-chevron">▼</span></div>
+          <div class="tick-analyzer-bar__content">
+            <div class="tick-analyzer-bar__header-info">
+              <div class="tick-analyzer-bar__title">📅 Sighting Timeframe Analyzer</div>
               <div id="tick-analyzer-summary" style="display: none; align-items: center; gap: 6px; flex-wrap: wrap;">
                 <span id="tick-analyzer-start" style="font-size: 11px; padding: 4px 8px; font-weight: bold; background: rgba(96, 165, 250, 0.15); color: rgb(96, 165, 250); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: var(--radius-sm);">Start: 0 Ticks</span>
                 <span id="tick-analyzer-end" style="font-size: 11px; padding: 4px 8px; font-weight: bold; background: rgba(167, 139, 250, 0.15); color: rgb(167, 139, 250); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: var(--radius-sm);">End: 0 Ticks</span>
                 <span id="tick-analyzer-added" style="font-size: 11px; padding: 4px 8px; font-weight: bold; background: rgba(239, 68, 68, 0.15); color: rgb(239, 68, 68); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);">+0 Ticks Gained</span>
               </div>
             </div>
-          </button>
-          <div class="tick-analyzer-bar__controls" id="analyzer-controls">
-            <label class="analyzer-date-label">
-              Start Date
-              <input type="date" id="tick-date-start" class="control-date control-date--sm" />
-            </label>
-            <label class="analyzer-date-label">
-              End Date
-              <input type="date" id="tick-date-end" class="control-date control-date--sm" />
-            </label>
-            <div class="analyzer-date-label">
-              Quick Picks
-              <div class="quick-pick-row">
-                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="this-year">This Year</button>
-                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="this-month">This Month</button>
-                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-year">Last Year</button>
-                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-7">Last 7 Days</button>
-                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-30">Last 30 Days</button>
-                <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-90">Last 90 Days</button>
+            <div class="tick-analyzer-bar__controls" id="analyzer-controls">
+              <label class="analyzer-date-label">
+                Start Date
+                <input type="date" id="tick-date-start" class="control-date control-date--sm" />
+              </label>
+              <label class="analyzer-date-label">
+                End Date
+                <input type="date" id="tick-date-end" class="control-date control-date--sm" />
+              </label>
+              <div class="analyzer-date-label">
+                Quick Picks
+                <div class="quick-pick-row">
+                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="this-year">This Year</button>
+                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="this-month">This Month</button>
+                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-year">Last Year</button>
+                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-7">Last 7 Days</button>
+                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-30">Last 30 Days</button>
+                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-90">Last 90 Days</button>
+                </div>
               </div>
+              <label class="analyzer-date-label">
+                Geographic Level
+                <select id="tick-level" class="control-select control-select--sm" style="height: 32px; min-width: 130px; font-size: var(--font-size-xs); padding: 4px 8px;">
+                  <option value="county">📍 County Ticks</option>
+                  <option value="state">🌍 State Ticks</option>
+                </select>
+              </label>
+              <label class="analyzer-date-label">
+                Map Color Mode
+                <select id="map-color-mode" class="control-select control-select--sm" style="height: 32px; min-width: 170px; font-size: var(--font-size-xs); padding: 4px 8px;">
+                  <option value="total">📊 Total Lifetime Ticks</option>
+                  <option value="added">⏱️ Timeframe Additions</option>
+                </select>
+              </label>
+              <button id="btn-clear-date-filter" class="btn btn--secondary btn--sm" style="margin-top: auto; padding: 6px 12px; height: 32px;">
+                🔄 Reset Window
+              </button>
             </div>
-            <label class="analyzer-date-label">
-              Geographic Level
-              <select id="tick-level" class="control-select control-select--sm" style="height: 32px; min-width: 130px; font-size: var(--font-size-xs); padding: 4px 8px;">
-                <option value="county">📍 County Ticks</option>
-                <option value="state">🌍 State Ticks</option>
-              </select>
-            </label>
-            <label class="analyzer-date-label">
-              Map Color Mode
-              <select id="map-color-mode" class="control-select control-select--sm" style="height: 32px; min-width: 170px; font-size: var(--font-size-xs); padding: 4px 8px;">
-                <option value="total">📊 Total Lifetime Ticks</option>
-                <option value="added">⏱️ Timeframe Additions</option>
-              </select>
-            </label>
-            <button id="btn-clear-date-filter" class="btn btn--secondary btn--sm" style="margin-top: auto; padding: 6px 12px; height: 32px;">
-              🔄 Reset Window
-            </button>
           </div>
+          <button id="btn-toggle-analyzer" class="tick-analyzer-bar__toggle-btn" type="button" aria-expanded="false" title="Toggle Analyzer Controls">
+            <span class="analyzer-toggle-chevron">▼</span>
+          </button>
         </div>
 
         <!-- Dashboard Body Layout -->

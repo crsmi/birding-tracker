@@ -1533,6 +1533,7 @@
   }
 
   async function renderTickExplorer() {
+    hideMapTooltip();
     showLoading('Rendering Tick Explorer...');
 
     try {
@@ -2503,6 +2504,10 @@
           text.setAttribute('x', x);
           text.setAttribute('y', drawY);
           text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('stroke', '#0b0f19');
+          text.setAttribute('stroke-width', isLevel3 ? '3px' : '2px');
+          text.setAttribute('stroke-linejoin', 'round');
+          text.setAttribute('paint-order', 'stroke fill');
           text.style.pointerEvents = 'none';
           text.style.fontSize = fSize;
           text.style.fontFamily = 'Inter, system-ui, -apple-system, sans-serif';
@@ -2717,6 +2722,10 @@
         text.setAttribute('x', node.x);
         text.setAttribute('y', drawY);
         text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('stroke', '#0b0f19');
+        text.setAttribute('stroke-width', '2px');
+        text.setAttribute('stroke-linejoin', 'round');
+        text.setAttribute('paint-order', 'stroke fill');
         text.style.pointerEvents = 'none';
         text.style.fontSize = fSize;
         text.style.fontFamily = 'Inter, system-ui, -apple-system, sans-serif';
@@ -2751,6 +2760,7 @@
   }
 
   function renderTickMap(subregionsMap, maxSpeciesCount) {
+    hideMapTooltip();
     const colorMode = DOM.mapColorMode ? DOM.mapColorMode.value : 'total';
     const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
     const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
@@ -3796,6 +3806,19 @@
         }
       });
     }
+
+    // Dismiss map tooltip on click-away or touchstart-away
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.county-path-shape') && !e.target.closest('g.map-node-group') && !e.target.closest('.map-zoom-out-btn')) {
+        hideMapTooltip();
+      }
+    });
+
+    document.addEventListener('touchstart', (e) => {
+      if (!e.target.closest('.county-path-shape') && !e.target.closest('g.map-node-group') && !e.target.closest('.map-zoom-out-btn')) {
+        hideMapTooltip();
+      }
+    }, { passive: true });
 
     // Collapsible Timeframe Analyzer on Mobile
     if (DOM.btnToggleAnalyzer && DOM.analyzerControls) {

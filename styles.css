@@ -1168,10 +1168,28 @@ a:hover {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
-  padding: var(--space-4) var(--space-5);
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  align-items: stretch;
+  box-shadow: var(--shadow-sm);
+}
+
+.tick-analyzer-bar__content {
+  flex: 1;
+  padding: 12px var(--space-4);
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.tick-analyzer-bar__header-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-3);
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .tick-analyzer-bar__title {
@@ -1184,11 +1202,57 @@ a:hover {
   gap: var(--space-2);
 }
 
+.tick-analyzer-bar__toggle-btn {
+  width: 52px;
+  background: rgba(255, 255, 255, 0.02);
+  border: none;
+  border-left: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  color: var(--color-text-tertiary);
+  padding: 0;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.tick-analyzer-bar__toggle-btn:hover {
+  background: rgba(20, 184, 166, 0.08); /* accent highlight */
+  color: var(--color-accent);
+}
+
+.tick-analyzer-bar__toggle-btn:active {
+  background: rgba(20, 184, 166, 0.15);
+}
+
+.analyzer-toggle-chevron {
+  font-size: 14px;
+  transition: transform var(--transition-base) ease;
+}
+
+.tick-analyzer-bar__toggle-btn[aria-expanded="true"] .analyzer-toggle-chevron {
+  transform: rotate(180deg);
+}
+
 .tick-analyzer-bar__controls {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
   display: flex;
   align-items: flex-end;
   gap: var(--space-4);
   flex-wrap: wrap;
+  transition: max-height 0.3s ease-in-out, opacity 0.2s ease, margin-top 0.3s ease;
+}
+
+.tick-analyzer-bar__controls.is-expanded {
+  max-height: 500px;
+  opacity: 1;
+  pointer-events: auto;
+  margin-top: 12px;
 }
 
 .analyzer-date-label {
@@ -1856,27 +1920,7 @@ a:hover {
   pointer-events: auto;
 }
 
-/* Collapsible Timeframe Analyzer styling */
-.tick-analyzer-bar__header {
-  width: 100%;
-  background: transparent;
-  border: none;
-  text-align: left;
-  padding: 0;
-  cursor: pointer;
-  outline: none;
-  display: block;
-}
-.analyzer-toggle-chevron {
-  display: inline-block;
-  font-size: 10px;
-  color: var(--color-text-tertiary);
-  transition: transform var(--transition-fast);
-  margin-left: var(--space-2);
-}
-.tick-analyzer-bar__header[aria-expanded="true"] .analyzer-toggle-chevron {
-  transform: rotate(180deg);
-}
+/* Collapsible Timeframe Analyzer styling is handled in the base styles section */
 
 /* Sticky columns for species grid */
 .data-grid th:nth-child(1),
@@ -2113,7 +2157,15 @@ body {
   }
 
   .tick-analyzer-bar {
-    padding: var(--space-3);
+    padding: 0;
+  }
+
+  .tick-analyzer-bar__content {
+    padding: 10px var(--space-3);
+  }
+
+  .tick-analyzer-bar__toggle-btn {
+    width: 44px;
   }
 
   .tick-analyzer-bar__controls {
@@ -2130,6 +2182,7 @@ body {
     max-height: 600px;
     opacity: 1;
     pointer-events: auto;
+    margin-top: 10px;
   }
 
   .analyzer-date-label {
