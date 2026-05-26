@@ -1445,11 +1445,11 @@
     const targets = state.speciesData.filter(sp => sp.isTarget).length;
     const pastDue = state.speciesData.filter(sp => sp.isPastDue).length;
 
-    DOM.statBarSpecies.textContent = total;
-    DOM.statBarTargets.textContent = targets;
-    DOM.statBarPastDue.textContent = pastDue;
-    DOM.statBarYear.textContent = state.targetYear;
-    DOM.statBarSimDate.textContent = formatDateLabel(state.simDate);
+    if (DOM.statBarSpecies) DOM.statBarSpecies.textContent = total;
+    if (DOM.statBarTargets) DOM.statBarTargets.textContent = targets;
+    if (DOM.statBarPastDue) DOM.statBarPastDue.textContent = pastDue;
+    if (DOM.statBarYear) DOM.statBarYear.textContent = state.targetYear;
+    if (DOM.statBarSimDate) DOM.statBarSimDate.textContent = formatDateLabel(state.simDate);
   }
 
   function updateAlerts() {
