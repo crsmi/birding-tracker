@@ -410,15 +410,15 @@
               </form>
             </div>
 
-            <div class="settings-card" id="settings-import-card" style="display: none; margin-top: var(--space-4);">
+            <div class="settings-card" id="settings-import-card" style="margin-top: var(--space-4);">
               <h3 class="settings-card__title">📥 Auto-Import Regional Exotics</h3>
               <p style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
-                To quickly identify exotic or non-countable species for <strong id="settings-import-region-label">this region</strong>, download your official eBird region life list and import the CSV file here.
+                To quickly identify exotic or non-countable species, select a State/Province above to download your region's life list, or simply upload your downloaded eBird Life List CSV here to auto-detect.
               </p>
               
-              <div style="display: flex; flex-direction: column; gap: var(--space-3);">
-                <!-- Step 1: Download button -->
-                <a id="btn-ebird-lifelist" class="btn btn--secondary btn--sm" target="_blank" rel="noopener noreferrer" style="width: 100%; text-align: center; justify-content: center; display: inline-flex; align-items: center; gap: 6px;">
+              <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                <!-- Step 1: Download button (shown only when a state is selected) -->
+                <a id="btn-ebird-lifelist" class="btn btn--secondary btn--sm" target="_blank" rel="noopener noreferrer" style="display: none; width: 100%; text-align: center; justify-content: center; align-items: center; gap: 6px;">
                   🔗 Download Region Life List
                 </a>
                 

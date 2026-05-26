@@ -1441,28 +1441,80 @@
     const label = DOM.settingsImportRegionLabel;
     const link = DOM.btnEbirdLifelist;
 
-    if (!card || !label || !link) return;
+    if (!card || !link) return;
 
     const selectedState = DOM.exclusionState ? DOM.exclusionState.value : '';
     const selectedCounty = DOM.exclusionCounty ? DOM.exclusionCounty.value : '';
 
+    // Always show the import card so users can upload a file directly
+    card.style.display = 'block';
+
     if (!selectedState) {
-      card.style.display = 'none';
+      link.style.display = 'none';
       return;
     }
 
-    card.style.display = 'block';
+    // Show the download button as it applies to the selected state/county
+    link.style.display = 'inline-flex';
 
     const cleanState = cleanStateCode(selectedState);
     let regionLabel = cleanState;
     if (selectedCounty) {
       regionLabel = `${selectedCounty}, ${cleanState}`;
     }
-    label.textContent = regionLabel;
+    if (label) {
+      label.textContent = regionLabel;
+    }
 
     const regionCode = getSettingsEbirdRegionCode();
     link.href = `https://ebird.org/lifelist?r=${regionCode}&time=life&fmt=csv`;
     link.textContent = `🔗 Download ${regionLabel} Life List`;
+  }
+
+  function detectRegionFromEbirdFile(file, firstRow) {
+    let stateVal = '';
+    let countyVal = '';
+
+    // 1. Try to match from filename, e.g. ebird_US-WI-025_life_list.csv
+    const filename = file.name;
+    const match = filename.match(/ebird_(us-[a-z]{2}(?:-[0-9]{3})?)/i);
+    if (match) {
+      const regionCode = match[1].toUpperCase(); // E.g., "US-WI-025" or "US-WI"
+      const parts = regionCode.split('-');
+      if (parts.length >= 2) {
+        stateVal = `US-${parts[1]}`; // E.g. "US-WI"
+        if (parts.length === 3) {
+          const countySuffix = parts[2]; // E.g. "025"
+          const stateFips = STATE_TO_FIPS[parts[1]];
+          if (stateFips && typeof topojson !== 'undefined' && window.US_ATLAS) {
+            try {
+              const fullFips = stateFips + countySuffix;
+              const counties = topojson.feature(window.US_ATLAS, window.US_ATLAS.objects.counties).features;
+              const countyFeature = counties.find(f => f.id === fullFips);
+              if (countyFeature) {
+                countyVal = countyFeature.properties.name;
+              }
+            } catch (err) {
+              console.error('Error finding county from FIPS:', err);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Fall back to check first row S/P if we didn't get stateVal
+    if (!stateVal && firstRow) {
+      const sp = (firstRow['S/P'] || firstRow['s/p'] || firstRow['State/Province'] || firstRow['State'] || '').trim();
+      if (sp) {
+        if (sp.toUpperCase().startsWith('US-')) {
+          stateVal = sp.toUpperCase();
+        } else if (sp.length === 2) {
+          stateVal = `US-${sp.toUpperCase()}`;
+        }
+      }
+    }
+
+    return { stateVal, countyVal };
   }
 
   function parseEbirdLifeListCSV(csvText) {
@@ -4136,18 +4188,61 @@
         const file = e.target.files[0];
         if (!file) return;
 
-        const stateVal = DOM.exclusionState ? DOM.exclusionState.value : '';
-        const countyVal = DOM.exclusionCounty ? DOM.exclusionCounty.value : '';
-
-        if (!stateVal) {
-          showToast('Please select a State/Province first.', 'error');
-          return;
-        }
-
         showLoading('Parsing eBird Life List...');
         try {
           const text = await file.text();
           const rows = await parseEbirdLifeListCSV(text);
+
+          if (rows.length === 0) {
+            showToast('The uploaded CSV file is empty.', 'error');
+            return;
+          }
+
+          // Validate CSV headers to ensure it is a valid eBird Life List CSV
+          const firstRow = rows[0];
+          const headers = firstRow ? Object.keys(firstRow).map(h => h.trim().toLowerCase()) : [];
+          const hasCommonName = headers.some(h => ['common name', 'commonname'].includes(h));
+          const hasCountable = headers.some(h => ['countable', 'is countable'].includes(h));
+
+          if (!hasCommonName || !hasCountable) {
+            showToast('Invalid CSV format. Please upload an official eBird Life List CSV containing "Common Name" and "Countable" columns.', 'error');
+            return;
+          }
+
+          // 1. Auto-detect region from file name or first row S/P
+          const detected = detectRegionFromEbirdFile(file, rows[0]);
+          let stateVal = '';
+          let countyVal = '';
+
+          if (detected.stateVal) {
+            // Check if this state exists in the dropdown options
+            const hasStateOption = Array.from(DOM.exclusionState.options).some(opt => opt.value === detected.stateVal);
+            if (hasStateOption) {
+              DOM.exclusionState.value = detected.stateVal;
+              DOM.exclusionState.dispatchEvent(new Event('change'));
+              stateVal = detected.stateVal;
+
+              if (detected.countyVal) {
+                const hasCountyOption = Array.from(DOM.exclusionCounty.options).some(opt => opt.value === detected.countyVal);
+                if (hasCountyOption) {
+                  DOM.exclusionCounty.value = detected.countyVal;
+                  DOM.exclusionCounty.dispatchEvent(new Event('change'));
+                  countyVal = detected.countyVal;
+                }
+              }
+            }
+          }
+
+          // Fall back to current dropdown selection if auto-detection didn't yield an option or was not matchable
+          if (!stateVal) {
+            stateVal = DOM.exclusionState ? DOM.exclusionState.value : '';
+            countyVal = DOM.exclusionCounty ? DOM.exclusionCounty.value : '';
+          }
+
+          if (!stateVal) {
+            showToast('Could not auto-detect region. Please select a State/Province first.', 'error');
+            return;
+          }
 
           let addedCount = 0;
           let skippedCount = 0;
@@ -4191,8 +4286,8 @@
           }
 
           if (addedCount > 0) {
-            await DB.saveSetting('userExclusions', state.userExclusions);
-            renderUserExclusions();
+            await DB.setSetting('userExclusions', state.userExclusions);
+            await renderSettings();
             showToast(`Imported ${addedCount} non-countable exotics for this region!`, 'success');
             if (state.isDataLoaded) refreshGrid();
           } else {

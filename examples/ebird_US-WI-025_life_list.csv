@@ -1,0 +1,140 @@
+Row #,Taxon Order,Category,Common Name,Scientific Name,Count,Location,S/P,Date,LocID,SubID,Exotic,Countable
+1,34346,species,Wilson's Warbler,Cardellina pusilla,1,Pheasant Branch Conservancy--Creek Corridor,US-WI,07 Sep 2025,L6528252,S272021476,,1
+2,34133,species,Chestnut-sided Warbler,Setophaga pensylvanica,2,Pheasant Branch Conservancy--Creek Corridor,US-WI,07 Sep 2025,L6528252,S272021476,,1
+3,34083,species,Bay-breasted Warbler,Setophaga castanea,1,Pheasant Branch Conservancy--Creek Corridor,US-WI,07 Sep 2025,L6528252,S272021476,,1
+4,34079,species,Magnolia Warbler,Setophaga magnolia,2,Pheasant Branch Conservancy--Creek Corridor,US-WI,07 Sep 2025,L6528252,S272021476,,1
+5,33981,species,Nashville Warbler,Leiothlypis ruficapilla,2,Pheasant Branch Conservancy--Creek Corridor,US-WI,07 Sep 2025,L6528252,S272021476,,1
+6,33972,species,Tennessee Warbler,Leiothlypis peregrina,5,Pheasant Branch Conservancy--Creek Corridor,US-WI,07 Sep 2025,L6528252,S272021476,,1
+7,33962,species,Black-and-white Warbler,Mniotilta varia,2,Pheasant Branch Conservancy--Creek Corridor,US-WI,07 Sep 2025,L6528252,S272021476,,1
+9,22160,species,Tufted Titmouse,Baeolophus bicolor,1,Pheasant Branch Conservancy--Creek Corridor,US-WI,07 Sep 2025,L6528252,S272021476,,1
+10,17007,species,Eastern Phoebe,Sayornis phoebe,1,Pheasant Branch Conservancy--Creek Corridor,US-WI,06 Sep 2025,L6528252,S271884509,,1
+11,34627,species,Dickcissel,Spiza americana,2,"5717 Wisconsin 19, Mazomanie, Wisconsin, US (43.169, -89.774)",US-WI,15 Jun 2025,L47655345,S250497831,,1
+12,737,species,Black Scoter,Melanitta americana,3,Giddings Park,US-WI,16 Nov 2024,L19913208,S202728478,,1
+13,728,species,Surf Scoter,Melanitta perspicillata,5,Giddings Park,US-WI,16 Nov 2024,L19913208,S202728478,,1
+15,6192,species,Dunlin,Calidris alpina,1,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,16 Nov 2024,L199454,S202699472,,1
+16,6104,species,Wilson's Snipe,Gallinago delicata,4,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,16 Nov 2024,L199454,S202699472,,1
+17,517,species,American Wigeon,Mareca americana,8,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,16 Nov 2024,L199454,S202699472,,1
+18,512,species,Eurasian Wigeon,Mareca penelope,1,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,16 Nov 2024,L199454,S202699472,,1
+19,6061,species,Long-billed Dowitcher,Limnodromus scolopaceus,1,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,19 Oct 2024,L199454,S199513455,,1
+20,1274,species,Wild Turkey,Meleagris gallopavo,2,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,19 Oct 2024,L199454,S199513455,,1
+21,267,species,Snow Goose,Anser caerulescens,1,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,19 Oct 2024,L199454,S199513455,,1
+22,33848,species,Rusty Blackbird,Euphagus carolinus,1,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,19 Oct 2024,L199454,S199455047,,1
+23,33833,species,Brown-headed Cowbird,Molothrus ater,5,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,19 Oct 2024,L199454,S199455047,,1
+25,33201,species,White-throated Sparrow,Zonotrichia albicollis,1,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,19 Oct 2024,L199454,S199455047,,1
+26,594,species,Northern Pintail,Anas acuta,3,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,19 Oct 2024,L199454,S199455047,,1
+27,6232,species,Semipalmated Sandpiper,Calidris pusilla,1,Ashton K Pond (Dane Co.),US-WI,25 Aug 2024,L516004,S192789979,,1
+28,6227,species,Pectoral Sandpiper,Calidris melanotos,10,Ashton K Pond (Dane Co.),US-WI,25 Aug 2024,L516004,S192789979,,1
+29,6154,species,Greater Yellowlegs,Tringa melanoleuca,3,Ashton K Pond (Dane Co.),US-WI,25 Aug 2024,L516004,S192789979,,1
+30,6145,species,Lesser Yellowlegs,Tringa flavipes,30,Ashton K Pond (Dane Co.),US-WI,25 Aug 2024,L516004,S192789979,,1
+31,6121,species,Red-necked Phalarope,Phalaropus lobatus,1,Ashton K Pond (Dane Co.),US-WI,25 Aug 2024,L516004,S192789979,,1
+33,24064,species,Tree Swallow,Tachycineta bicolor,7,Patton Rd./Oak Ln. Ponds,US-WI,28 Jul 2024,L549205,S189288239,,1
+34,7724,species,Western Cattle-Egret,Ardea ibis,1,Patton Rd./Oak Ln. Ponds,US-WI,28 Jul 2024,L549205,S189288239,,1
+35,485,species,Blue-winged Teal,Spatula discors,1,Patton Rd./Oak Ln. Ponds,US-WI,28 Jul 2024,L549205,S189288239,,1
+36,28037,species,Brown Thrasher,Toxostoma rufum,1,"379 Perry Center Road, Mount Horeb, Wisconsin, US (42.876, -89.765)",US-WI,09 Jul 2024,L34523683,S186219750,,1
+37,27191,species,Northern House Wren,Troglodytes aedon,1,"379 Perry Center Road, Mount Horeb, Wisconsin, US (42.876, -89.765)",US-WI,09 Jul 2024,L34523683,S186219750,,1
+38,22710,species,Horned Lark,Eremophila alpestris,1,"7514 Madigan Road, Dane, Wisconsin, US (43.271, -89.452)",US-WI,01 Jan 2024,L28574570,S157784345,,1
+40,27026,species,Brown Creeper,Certhia americana,1,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,1
+41,26848,species,Golden-crowned Kinglet,Regulus satrapa,1,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,1
+42,11762,species,Pileated Woodpecker,Dryocopus pileatus,1,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,1
+43,8367,species,Bald Eagle,Haliaeetus leucocephalus,2,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,1
+44,6869,species,Red-necked Grebe,Podiceps grisegena,2,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,1
+45,5500,species,American Coot,Fulica americana,500,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,1
+48,770,species,Red-breasted Merganser,Mergus serrator,6,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,1
+49,694,species,Greater Scaup,Aythya marila,10,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,1
+50,571,species,American Black Duck,Anas rubripes,3,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,1
+52,12062,species,Merlin,Falco columbarius,1,Tenney Park,US-WI,01 Jan 2024,L356316,S157749598,,1
+53,8866,species,Eastern Screech-Owl,Megascops asio,1,Tenney Park,US-WI,01 Jan 2024,L356316,S157749598,,1
+54,730,species,White-winged Scoter,Melanitta deglandi,5,Tenney Park,US-WI,01 Jan 2024,L356316,S157749598,,1
+55,6539,species,American Herring Gull,Larus smithsonianus,30,University Bay (Madison),US-WI,01 Jan 2024,L273857,S157749632,,1
+56,762,species,Common Merganser,Mergus merganser,8,University Bay (Madison),US-WI,01 Jan 2024,L273857,S157749632,,1
+57,673,species,Ring-necked Duck,Aythya collaris,75,University Bay (Madison),US-WI,01 Jan 2024,L273857,S157749632,,1
+58,667,species,Redhead,Aythya americana,20,University Bay (Madison),US-WI,01 Jan 2024,L273857,S157749632,,1
+59,666,species,Canvasback,Aythya valisineria,8,University Bay (Madison),US-WI,01 Jan 2024,L273857,S157749632,,1
+60,33124,species,Dark-eyed Junco,Junco hyemalis,16,UW Madison Arboretum--Ho-Nee-Um Pond,US-WI,01 Jan 2024,L1477797,S157749652,,1
+61,33099,species,Fox Sparrow,Passerella iliaca,2,UW Madison Arboretum--Ho-Nee-Um Pond,US-WI,01 Jan 2024,L1477797,S157749652,,1
+62,33095,species,American Tree Sparrow,Spizelloides arborea,6,UW Madison Arboretum--Ho-Nee-Um Pond,US-WI,01 Jan 2024,L1477797,S157749652,,1
+63,1853,species,Rock Pigeon,Columba livia,1,"US-12 E, Middleton US-WI 43.10861, -89.51767",US-WI,01 Jan 2024,L28560613,S157712756,N,1
+64,6933,species,Common Loon,Gavia immer,10,Tenney Park,US-WI,05 Nov 2023,L356316,S153852215,,1
+65,6866,species,Horned Grebe,Podiceps auritus,2,Tenney Park,US-WI,05 Nov 2023,L356316,S153852215,,1
+66,743,species,Common Goldeneye,Bucephala clangula,20,Tenney Park,US-WI,05 Nov 2023,L356316,S153852215,,1
+67,741,species,Long-tailed Duck,Clangula hyemalis,1,Tenney Park,US-WI,05 Nov 2023,L356316,S153852215,,1
+68,4826,species,Rufous Hummingbird,Selasphorus rufus,1,Governor Nelson SP,US-WI,21 Oct 2023,L272471,S152780405,,1
+69,1477,species,Ring-necked Pheasant,Phasianus colchicus,1,Governor Nelson SP,US-WI,21 Oct 2023,L272471,S152780405,N,1
+70,778,species,Ruddy Duck,Oxyura jamaicensis,1,Stricker's Pond,US-WI,21 Oct 2023,L300429,S152780407,,1
+71,455,species,Wood Duck,Aix sponsa,2,Stricker's Pond,US-WI,21 Oct 2023,L300429,S152780407,,1
+72,243,species,Black-bellied Whistling-Duck,Dendrocygna autumnalis,1,Stricker's Pond,US-WI,21 Oct 2023,L300429,S152780407,,1
+73,28126,species,Eastern Bluebird,Sialia sialis,1,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,21 Oct 2023,L199454,S152780419,,1
+74,21484,species,Clark's Nutcracker,Nucifraga columbiana,1,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,21 Oct 2023,L199454,S152780419,,1
+75,6855,species,Pied-billed Grebe,Podilymbus podiceps,4,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,21 Oct 2023,L199454,S152780419,,1
+76,6521,species,Ring-billed Gull,Larus delawarensis,3,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,21 Oct 2023,L199454,S152780419,,1
+77,742,species,Bufflehead,Bucephala albeola,2,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,21 Oct 2023,L199454,S152780419,,1
+78,700,species,Lesser Scaup,Aythya affinis,1,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,21 Oct 2023,L199454,S152780419,,1
+79,612,species,Green-winged Teal,Anas crecca,3,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,21 Oct 2023,L199454,S152780419,,1
+80,505,species,Gadwall,Mareca strepera,1,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,21 Oct 2023,L199454,S152780419,,1
+81,501,species,Northern Shoveler,Spatula clypeata,3,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,21 Oct 2023,L199454,S152780419,,1
+82,384,species,Tundra Swan,Cygnus columbianus,1,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,21 Oct 2023,L199454,S152780419,,1
+83,12028,species,American Kestrel,Falco sparverius,1,"Beltline Hwy, Madison US-WI 43.04749, -89.28754",US-WI,21 Oct 2023,L27628551,S152780411,,1
+84,34159,species,Yellow-rumped Warbler,Setophaga coronata,1,Stewart County Park (Dane Co.),US-WI,23 Sep 2023,L390300,S150585866,,1
+85,11400,species,Downy Woodpecker,Dryobates pubescens,1,Stewart County Park (Dane Co.),US-WI,23 Sep 2023,L390300,S150585866,,1
+86,5671,species,Limpkin,Aramus guarauna,1,Stewart County Park (Dane Co.),US-WI,23 Sep 2023,L390300,S150585866,,1
+87,33853,species,Common Grackle,Quiscalus quiscula,3,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+88,33415,species,Eastern Towhee,Pipilo erythrophthalmus,3,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+89,28347,species,Wood Thrush,Hylocichla mustelina,1,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+90,17472,species,Eastern Kingbird,Tyrannus tyrannus,1,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+91,11427,species,Hairy Woodpecker,Leuconotopicus villosus,2,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+92,10306,species,Belted Kingfisher,Megaceryle alcyon,1,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+93,7832,species,Osprey,Pandion haliaetus,1,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+94,6226,species,Least Sandpiper,Calidris minutilla,9,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+95,6129,species,Solitary Sandpiper,Tringa solitaria,1,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+96,6126,species,Spotted Sandpiper,Actitis macularius,4,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+97,5827,species,Killdeer,Charadrius vociferus,3,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+98,342,species,Canada Goose,Branta canadensis,8,Mazomanie Wildlife Area C,US-WI,29 Jul 2023,L325049,S145893439,,1
+99,33315,species,Swamp Sparrow,Melospiza georgiana,1,Esser Pond,US-WI,29 Jul 2023,L6038512,S145883586,,1
+100,27329,species,Marsh Wren,Cistothorus palustris,1,Esser Pond,US-WI,29 Jul 2023,L6038512,S145883586,,1
+102,34607,species,Indigo Bunting,Passerina cyanea,2,Pheasant Branch Conservancy--Dane County Unit (prairie parcel),US-WI,07 Aug 2022,L6501053,S116496101,,1
+103,34028,species,Common Yellowthroat,Geothlypis trichas,2,Pheasant Branch Conservancy--Dane County Unit (prairie parcel),US-WI,07 Aug 2022,L6501053,S116496101,,1
+104,33002,species,Field Sparrow,Spizella pusilla,2,Pheasant Branch Conservancy--Dane County Unit (prairie parcel),US-WI,07 Aug 2022,L6501053,S116496101,,1
+105,32990,species,Chipping Sparrow,Spizella passerina,1,Pheasant Branch Conservancy--Dane County Unit (prairie parcel),US-WI,07 Aug 2022,L6501053,S116496101,,1
+106,31534,species,House Sparrow,Passer domesticus,10,Pheasant Branch Conservancy--Dane County Unit (prairie parcel),US-WI,07 Aug 2022,L6501053,S116496101,N,1
+107,27303,species,Sedge Wren,Cistothorus stellaris,1,Pheasant Branch Conservancy--Dane County Unit (prairie parcel),US-WI,07 Aug 2022,L6501053,S116496101,,1
+108,19267,species,Red-eyed Vireo,Vireo olivaceus,1,Pheasant Branch Conservancy--Dane County Unit (prairie parcel),US-WI,07 Aug 2022,L6501053,S116496101,,1
+109,7753,species,Great Blue Heron,Ardea herodias,1,Pheasant Branch Conservancy--Dane County Unit (prairie parcel),US-WI,07 Aug 2022,L6501053,S116496101,,1
+110,33277,species,Song Sparrow,Melospiza melodia,1,Esser Pond,US-WI,25 Jun 2022,L6038512,S113770213,,1
+111,32310,species,House Finch,Haemorhous mexicanus,1,Esser Pond,US-WI,25 Jun 2022,L6038512,S113770213,N,1
+112,27813,species,European Starling,Sturnus vulgaris,1,Esser Pond,US-WI,25 Jun 2022,L6038512,S113770213,N,1
+113,754,species,Hooded Merganser,Lophodytes cucullatus,7,Esser Pond,US-WI,25 Jun 2022,L6038512,S113770213,,1
+114,34515,species,Northern Cardinal,Cardinalis cardinalis,3,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+115,34058,species,American Redstart,Setophaga ruticilla,1,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+116,29888,species,Cedar Waxwing,Bombycilla cedrorum,3,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+117,28633,species,American Robin,Turdus migratorius,8,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+118,28324,species,Swainson's Thrush,Catharus ustulatus,1,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+119,28000,species,Gray Catbird,Dumetella carolinensis,6,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+120,26889,species,White-breasted Nuthatch,Sitta carolinensis,2,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+121,24281,species,Cliff Swallow,Petrochelidon pyrrhonota,5,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+122,22065,species,Black-capped Chickadee,Poecile atricapillus,10,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+123,21294,species,Blue Jay,Cyanocitta cristata,3,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+124,17334,species,Great Crested Flycatcher,Myiarchus crinitus,1,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+125,16924,species,Eastern Wood-Pewee,Contopus virens,2,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+126,11900,species,Northern Flicker,Colaptes auratus,2,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+127,11199,species,Red-bellied Woodpecker,Melanerpes carolinus,2,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+128,8506,species,Red-tailed Hawk,Buteo jamaicensis,2,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+129,8278,species,Cooper's Hawk,Astur cooperii,1,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+130,7729,species,Great Egret,Ardea alba,1,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+131,7704,species,Green Heron,Butorides virescens,2,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+132,5697,species,Sandhill Crane,Antigone canadensis,8,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+133,545,species,Mallard,Anas platyrhynchos,10,Pheasant Branch Conservancy (general),US-WI,22 Aug 2021,L208333,S93592569,,1
+134,33779,species,Red-winged Blackbird,Agelaius phoeniceus,2,Esser Pond,US-WI,21 Aug 2021,L6038512,S93552107,,1
+135,32617,species,American Goldfinch,Spinus tristis,3,Esser Pond,US-WI,21 Aug 2021,L6038512,S93552107,,1
+136,24187,species,Barn Swallow,Hirundo rustica,4,Esser Pond,US-WI,21 Aug 2021,L6038512,S93552107,,1
+137,21557,species,American Crow,Corvus brachyrhynchos,2,Esser Pond,US-WI,21 Aug 2021,L6038512,S93552107,,1
+138,7815,species,Turkey Vulture,Cathartes aura,1,Esser Pond,US-WI,21 Aug 2021,L6038512,S93552107,,1
+139,2412,species,Mourning Dove,Zenaida macroura,2,Esser Pond,US-WI,21 Aug 2021,L6038512,S93552107,,1
+8,28346,spuh,Catharus sp.,Catharus sp.,2,Pheasant Branch Conservancy--Creek Corridor,US-WI,07 Sep 2025,L6528252,S272021476,,0
+14,740,spuh,scoter sp.,Melanitta sp.,6,Burrows Park,US-WI,16 Nov 2024,L617790,S202728482,,0
+24,33520,spuh,new world sparrow sp.,Passerellidae sp.,20,Nine Springs Natural Area (MMSD Wildlife Observation Area),US-WI,19 Oct 2024,L199454,S199455047,,0
+32,33944,spuh,blackbird sp.,Icteridae sp.,50,Patton Rd./Oak Ln. Ponds,US-WI,28 Jul 2024,L549205,S189288239,,0
+39,35853,spuh,bird sp.,Aves sp.,1,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,0
+46,792,spuh,duck sp.,Anatidae (duck sp.),65,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,0
+47,773,slash,Common/Red-breasted Merganser,Mergus merganser/serrator,9,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,,0
+51,312,domestic,Domestic goose sp. (Domestic type),Anser sp. (Domestic type),1,UW Lakeshore Nature Preserve (general),US-WI,01 Jan 2024,L4081898,S157785477,X,0
+101,6619,spuh,gull sp.,Larinae sp.,8,Esser Pond,US-WI,29 Jul 2023,L6038512,S145883586,,0
