@@ -1173,6 +1173,7 @@ a:hover {
   overflow: hidden;
   align-items: stretch;
   box-shadow: var(--shadow-sm);
+  flex-shrink: 0 !important;
 }
 
 .tick-analyzer-bar__content {
@@ -1203,7 +1204,7 @@ a:hover {
 }
 
 .tick-analyzer-bar__toggle-btn {
-  display: none;
+  display: none !important;
   width: 52px;
   background: rgba(255, 255, 255, 0.02);
   border: none;
@@ -1237,7 +1238,11 @@ a:hover {
 }
 
 .tick-analyzer-bar__controls {
-  display: flex;
+  display: flex !important;
+  max-height: none !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
   align-items: flex-end;
   gap: var(--space-4);
   flex-wrap: wrap;
@@ -2154,15 +2159,15 @@ body {
   }
 
   .tick-analyzer-bar__toggle-btn {
-    display: flex;
+    display: flex !important;
     width: 44px;
   }
 
   .tick-analyzer-bar__controls {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    pointer-events: none;
+    max-height: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
     flex-direction: column;
     align-items: stretch;
     gap: var(--space-3);
@@ -2170,9 +2175,9 @@ body {
   }
 
   .tick-analyzer-bar__controls.is-expanded {
-    max-height: 600px;
-    opacity: 1;
-    pointer-events: auto;
+    max-height: 600px !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
     margin-top: 10px;
   }
 

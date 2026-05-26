@@ -12,6 +12,47 @@
 (function () {
   'use strict';
 
+  // Global error listener to help debug and show runtime errors on screen
+  window.addEventListener('error', (e) => {
+    console.error('Captured Global Error:', e.error || e.message);
+    const errOverlay = document.createElement('div');
+    errOverlay.style.position = 'fixed';
+    errOverlay.style.top = '10px';
+    errOverlay.style.left = '10px';
+    errOverlay.style.right = '10px';
+    errOverlay.style.background = '#ef4444';
+    errOverlay.style.color = '#fff';
+    errOverlay.style.padding = '12px';
+    errOverlay.style.borderRadius = '8px';
+    errOverlay.style.zIndex = '999999';
+    errOverlay.style.fontFamily = 'monospace';
+    errOverlay.style.fontSize = '12px';
+    errOverlay.style.whiteSpace = 'pre-wrap';
+    errOverlay.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.5)';
+    errOverlay.textContent = `⚠️ Runtime Error: ${e.message}\nAt: ${e.filename}:${e.lineno}:${e.colno}\nError Object: ${e.error ? e.error.stack : 'None'}`;
+    document.body.appendChild(errOverlay);
+  });
+
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('Captured Unhandled Rejection:', e.reason);
+    const errOverlay = document.createElement('div');
+    errOverlay.style.position = 'fixed';
+    errOverlay.style.top = '10px';
+    errOverlay.style.left = '10px';
+    errOverlay.style.right = '10px';
+    errOverlay.style.background = '#f59e0b';
+    errOverlay.style.color = '#fff';
+    errOverlay.style.padding = '12px';
+    errOverlay.style.borderRadius = '8px';
+    errOverlay.style.zIndex = '999999';
+    errOverlay.style.fontFamily = 'monospace';
+    errOverlay.style.fontSize = '12px';
+    errOverlay.style.whiteSpace = 'pre-wrap';
+    errOverlay.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.5)';
+    errOverlay.textContent = `⚠️ Unhandled Promise Rejection: ${e.reason ? (e.reason.stack || e.reason.message || e.reason) : 'Unknown reason'}`;
+    document.body.appendChild(errOverlay);
+  });
+
   const SYSTEM_EXCLUSIONS = [
     { id: 'sys-whooper-swan-wi', commonName: 'Whooper Swan', state: 'US-WI', county: '' },
     { id: 'sys-mandarin-duck-wi', commonName: 'Mandarin Duck', state: 'US-WI', county: '' },
@@ -3823,6 +3864,7 @@
     // Collapsible Timeframe Analyzer on Mobile
     if (DOM.btnToggleAnalyzer && DOM.analyzerControls) {
       DOM.btnToggleAnalyzer.addEventListener('click', () => {
+        if (window.innerWidth > 768) return; // Ignore on desktop - always open
         const controls = DOM.analyzerControls;
         const button = DOM.btnToggleAnalyzer;
         const expanded = button.getAttribute('aria-expanded') === 'true';
