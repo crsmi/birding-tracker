@@ -3809,13 +3809,13 @@
 
     // Dismiss map tooltip on click-away or touchstart-away
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.county-path-shape') && !e.target.closest('g.map-node-group') && !e.target.closest('.map-zoom-out-btn')) {
+      if (!e.target.closest('.county-path-shape, .county-node, .county-node-outer, .map-label, .map-zoom-out-btn')) {
         hideMapTooltip();
       }
     });
 
     document.addEventListener('touchstart', (e) => {
-      if (!e.target.closest('.county-path-shape') && !e.target.closest('g.map-node-group') && !e.target.closest('.map-zoom-out-btn')) {
+      if (!e.target.closest('.county-path-shape, .county-node, .county-node-outer, .map-label, .map-zoom-out-btn')) {
         hideMapTooltip();
       }
     }, { passive: true });

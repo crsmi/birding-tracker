@@ -1203,12 +1203,12 @@ a:hover {
 }
 
 .tick-analyzer-bar__toggle-btn {
+  display: none;
   width: 52px;
   background: rgba(255, 255, 255, 0.02);
   border: none;
   border-left: 1px solid var(--color-border-subtle);
   cursor: pointer;
-  display: flex;
   align-items: center;
   justify-content: center;
   transition: all var(--transition-fast);
@@ -1237,21 +1237,10 @@ a:hover {
 }
 
 .tick-analyzer-bar__controls {
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
   display: flex;
   align-items: flex-end;
   gap: var(--space-4);
   flex-wrap: wrap;
-  transition: max-height 0.3s ease-in-out, opacity 0.2s ease, margin-top 0.3s ease;
-}
-
-.tick-analyzer-bar__controls.is-expanded {
-  max-height: 500px;
-  opacity: 1;
-  pointer-events: auto;
   margin-top: 12px;
 }
 
@@ -2165,17 +2154,19 @@ body {
   }
 
   .tick-analyzer-bar__toggle-btn {
+    display: flex;
     width: 44px;
   }
 
   .tick-analyzer-bar__controls {
     max-height: 0;
     opacity: 0;
+    overflow: hidden;
     pointer-events: none;
     flex-direction: column;
     align-items: stretch;
     gap: var(--space-3);
-    transition: max-height var(--transition-base) ease-in-out, opacity var(--transition-base);
+    transition: max-height var(--transition-base) ease-in-out, opacity var(--transition-base), margin-top var(--transition-base);
   }
 
   .tick-analyzer-bar__controls.is-expanded {
