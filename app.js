@@ -3201,8 +3201,9 @@
         maintainAspectRatio: false,
         animation: false,
         interaction: {
-          mode: 'index',
-          intersect: false
+          mode: 'nearest',
+          intersect: false,
+          axis: 'x'
         },
         plugins: {
           legend: { display: false },
