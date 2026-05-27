@@ -2455,11 +2455,24 @@
         lookupKey = stateCode;
         
         if (code) {
-          for (const [key, sub] of subregionsMap) {
-            if (key === stateCode || key.endsWith(code)) {
-              totalCount = sub.speciesCount;
-              addedCount = addedCounts.get(key) || 0;
-              break;
+          const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+          if (isStateLevel) {
+            for (const [key, sub] of subregionsMap) {
+              if (key === stateCode || key.endsWith(code)) {
+                totalCount = sub.speciesCount;
+                addedCount = addedCounts.get(key) || 0;
+                break;
+              }
+            }
+          } else {
+            // Aggregate all counties for this state when looking at county ticks on the US Map
+            totalCount = 0;
+            addedCount = 0;
+            for (const [key, sub] of subregionsMap) {
+              if (key === stateCode || key.startsWith(`${stateCode}::`) || key.startsWith(`${code}::`)) {
+                totalCount += sub.speciesCount;
+                addedCount += addedCounts.get(key) || 0;
+              }
             }
           }
         }
@@ -2994,10 +3007,31 @@
     // Calculate max values for both Total and Added
     let maxTotal = 0;
     let maxAdded = 0;
-    for (const [key, sub] of subregionsMap) {
-      if (sub.speciesCount > maxTotal) maxTotal = sub.speciesCount;
-      const added = addedCounts.get(key) || 0;
-      if (added > maxAdded) maxAdded = added;
+    
+    const cleanedState = cleanStateCode(state.filterState);
+    
+    if (!isStateLevel && !cleanedState) {
+      // Zoomed out US Map in County Ticks mode: aggregate counts by state to find the maximum state-level aggregate
+      const stateTotals = new Map();
+      const stateAddeds = new Map();
+      for (const [key, sub] of subregionsMap) {
+        const stateKey = key.split('::')[0];
+        stateTotals.set(stateKey, (stateTotals.get(stateKey) || 0) + sub.speciesCount);
+        stateAddeds.set(stateKey, (stateAddeds.get(stateKey) || 0) + (addedCounts.get(key) || 0));
+      }
+      for (const [_, val] of stateTotals) {
+        if (val > maxTotal) maxTotal = val;
+      }
+      for (const [_, val] of stateAddeds) {
+        if (val > maxAdded) maxAdded = val;
+      }
+    } else {
+      // Standard behavior (state level or zoomed-in county level)
+      for (const [key, sub] of subregionsMap) {
+        if (sub.speciesCount > maxTotal) maxTotal = sub.speciesCount;
+        const added = addedCounts.get(key) || 0;
+        if (added > maxAdded) maxAdded = added;
+      }
     }
 
     const activeMax = colorMode === 'added' ? maxAdded : maxTotal;
