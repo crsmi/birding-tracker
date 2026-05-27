@@ -406,90 +406,191 @@
       <div class="settings-wrapper" id="settings-wrapper" style="display: none;">
         <div class="settings-header">
           <h2 class="settings-header__title">⚙️ Tracker Settings & Exclusions</h2>
-          <p class="settings-header__desc">Define species and regions that should not be counted toward your lists (e.g. non-countable exotics).</p>
+          <p class="settings-header__desc">Configure Exotics Exclusions, Custom Region Groupings, and General Preferences.</p>
         </div>
 
-        <div class="settings-grid">
-          <!-- Left Column: Add Exclusion Form -->
-          <div class="settings-column">
-            <div class="settings-card">
-              <h3 class="settings-card__title">➕ Add Custom Exclusion</h3>
-              <form id="form-add-exclusion" class="settings-form">
-                <div class="form-group">
-                  <label for="exclusion-species" class="form-label">Species Name</label>
-                  <input type="text" id="exclusion-species" class="control-input" placeholder="Start typing species common name..." list="datalist-species" autocomplete="off" required />
-                  <datalist id="datalist-species"></datalist>
-                </div>
-                <div class="form-group">
-                  <label for="exclusion-state" class="form-label">State / Province</label>
-                  <select id="exclusion-state" class="control-select" required>
-                    <option value="">Select State</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="exclusion-county" class="form-label">County (Optional)</label>
-                  <select id="exclusion-county" class="control-select">
-                    <option value="">All Counties</option>
-                  </select>
-                </div>
-                <button type="submit" id="btn-add-exclusion" class="btn btn--primary" style="width:100%; margin-top:var(--space-2);">
-                  💾 Add Exclusion Rule
-                </button>
-              </form>
-            </div>
+        <!-- Section 1: Exotics Exclusions & Rules -->
+        <div class="settings-section settings-section--exclusions">
+          <div class="settings-section__title">🚫 Exotics & Count Exclusions</div>
+          <div class="settings-grid">
+            <!-- Left Column: Add Exclusion & Auto-Import -->
+            <div class="settings-column">
+              <div class="settings-card">
+                <h3 class="settings-card__title">➕ Add Custom Exclusion</h3>
+                <form id="form-add-exclusion" class="settings-form">
+                  <div class="form-group">
+                    <label for="exclusion-species" class="form-label">Species Name</label>
+                    <input type="text" id="exclusion-species" class="control-input" placeholder="Start typing species common name..." list="datalist-species" autocomplete="off" required />
+                    <datalist id="datalist-species"></datalist>
+                  </div>
+                  <div class="form-group">
+                    <label for="exclusion-state" class="form-label">State / Province</label>
+                    <select id="exclusion-state" class="control-select" required>
+                      <option value="">Select State</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="exclusion-county" class="form-label">County (Optional)</label>
+                    <select id="exclusion-county" class="control-select">
+                      <option value="">All Counties</option>
+                    </select>
+                  </div>
+                  <button type="submit" id="btn-add-exclusion" class="btn btn--primary" style="width:100%; margin-top:var(--space-2);">
+                    💾 Add Exclusion Rule
+                  </button>
+                </form>
+              </div>
 
-            <div class="settings-card" id="settings-import-card" style="margin-top: var(--space-4);">
-              <h3 class="settings-card__title">📥 Auto-Import Regional Exotics</h3>
-              <p style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
-                To quickly identify exotic or non-countable species, select a State/Province above to download your region's life list, or simply upload your downloaded eBird Life List CSV here to auto-detect.
-              </p>
-              
-              <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-                <!-- Step 1: Download button (shown only when a state is selected) -->
-                <a id="btn-ebird-lifelist" class="btn btn--secondary btn--sm" target="_blank" rel="noopener noreferrer" style="display: none; width: 100%; text-align: center; justify-content: center; align-items: center; gap: 6px;">
-                  🔗 Download Region Life List
-                </a>
-                
-                <!-- Step 2: Upload button -->
-                <label class="btn btn--ghost btn--sm" style="display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; border: 1px dashed var(--color-border); margin: 0; text-align: center;">
-                  📂 Import eBird CSV File
-                  <input type="file" id="input-ebird-lifelist-csv" accept=".csv" style="display: none;" />
-                </label>
+              <div class="settings-card" id="settings-import-card" style="margin-top: var(--space-4);">
+                <h3 class="settings-card__title">📥 Auto-Import Regional Exotics</h3>
+                <p style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
+                  Select a State/Province above to download your region's life list, or simply upload your downloaded eBird Life List CSV here to auto-detect.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                  <a id="btn-ebird-lifelist" class="btn btn--secondary btn--sm" target="_blank" rel="noopener noreferrer" style="display: none; width: 100%; text-align: center; justify-content: center; align-items: center; gap: 6px;">
+                    🔗 Download Region Life List
+                  </a>
+                  <label class="btn btn--ghost btn--sm" style="display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; border: 1px dashed var(--color-border); margin: 0; text-align: center;">
+                    📂 Import eBird CSV File
+                    <input type="file" id="input-ebird-lifelist-csv" accept=".csv" style="display: none;" />
+                  </label>
+                </div>
               </div>
             </div>
 
+            <!-- Right Column: Exclusions Lists -->
+            <div class="settings-column">
+              <div class="settings-card">
+                <h3 class="settings-card__title">👤 Custom User Exclusions</h3>
+                <div class="settings-list-wrapper">
+                  <table class="settings-table">
+                    <thead>
+                      <tr>
+                        <th>Species</th>
+                        <th>Region</th>
+                        <th style="text-align: right; width: 60px;">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="user-exclusions-body">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="settings-card" style="margin-top: var(--space-4);">
+                <h3 class="settings-card__title">🏛️ System Default Exclusions</h3>
+                <p class="settings-card__desc" style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); margin-bottom: var(--space-3);">
+                  Toggle standard Midwestern exotic/non-countable species exclusions off if you want to count them.
+                </p>
+                <div class="settings-list-wrapper">
+                  <table class="settings-table">
+                    <thead>
+                      <tr>
+                        <th>Species</th>
+                        <th>Region</th>
+                        <th style="text-align: right; width: 100px;">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="system-exclusions-body">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Custom Region Groupings -->
+        <div class="settings-section settings-section--groupings">
+          <div class="settings-section__title">🗺️ Custom Region Groupings</div>
+          <!-- Visual County Grouping Map -->
+          <div class="settings-card" id="settings-custom-groups-card">
+            <p style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-4); line-height: 1.4;">
+              Create custom county groupings within a state (e.g. "Southern WI"). Select a state and click counties on the map to save a group.
+            </p>
+            <div class="settings-grid">
+              <div class="settings-column">
+                <div class="settings-form">
+                  <div class="form-group">
+                    <label for="group-name-input" class="form-label">Group Name</label>
+                    <input type="text" id="group-name-input" class="control-input" placeholder="e.g., Southern Wisconsin" autocomplete="off" />
+                  </div>
+                  <div class="form-group">
+                    <label for="group-state-select" class="form-label">State / Province</label>
+                    <select id="group-state-select" class="control-select">
+                      <option value="">Select State</option>
+                    </select>
+                  </div>
+                  
+                  <div id="group-selected-container" style="display: none; margin-top: var(--space-3);">
+                    <label class="form-label">Selected Counties</label>
+                    <div id="group-selected-list-box" style="display: flex; flex-wrap: wrap; gap: var(--space-1); max-height: 100px; overflow-y: auto; padding: var(--space-2); background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: var(--radius-sm);">
+                      <!-- Badges populated dynamically -->
+                    </div>
+                  </div>
+
+                  <button id="btn-save-custom-group" class="btn btn--primary" style="width: 100%; margin-top: var(--space-3);" disabled>
+                    💾 Save Custom Group
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-column">
+                <!-- SVG map container for counties selection -->
+                <div id="group-map-container" style="display: none; width: 100%; height: 300px; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-md); position: relative; overflow: hidden;">
+                  <svg id="group-svg-map" style="width: 100%; height: 100%; display: block;" viewBox="0 0 500 400">
+                    <g id="group-map-paths"></g>
+                  </svg>
+                  <div id="group-map-tooltip" style="position: absolute; display: none; background: var(--color-bg-secondary); border: 1px solid var(--color-accent); border-radius: var(--radius-sm); padding: 4px 8px; font-size: 10px; pointer-events: none; z-index: 10;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- List of Saved Custom Groups (full width) -->
+            <div style="margin-top: var(--space-5); border-top: 1px solid var(--color-border); padding-top: var(--space-4);">
+              <h4 style="font-family: var(--font-family-display); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); margin-bottom: var(--space-2);">Saved Custom Groups</h4>
+              <div class="settings-list-wrapper" style="max-height: 200px; overflow-y: auto;">
+                <table class="settings-table">
+                  <thead>
+                    <tr>
+                      <th>Group Name</th>
+                      <th>State</th>
+                      <th style="max-width: 120px;">Counties</th>
+                      <th style="text-align: right; width: 60px;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="settings-custom-groups-list">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Preferences & Configuration -->
+        <div class="settings-section settings-section--preferences">
+          <div class="settings-section__title">⚙️ Preferences & Configuration</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4);">
             <!-- Scouting Highlights Preferences -->
-            <div class="settings-card" id="settings-highlighting-card" style="margin-top: var(--space-4);">
+            <div class="settings-card" id="settings-highlighting-card">
               <h3 class="settings-card__title">🎨 Target Scouting Highlights</h3>
               <p style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
-                Highlight targets not yet seen in the target year based on whether they are before, during, or after their historical sighting window.
+                Highlight unseen target species rows by their historical sighting window.
               </p>
               <div class="form-group" style="margin-bottom: 0;">
                 <label class="control-toggle" title="When enabled, unseen target species are highlighted based on their historical sighting window.">
                   <input type="checkbox" id="chk-enable-highlights" checked />
                   <span class="control-toggle__track"></span>
-                  Enable scouting window highlighting
-                </label>
-              </div>
-            </div>
-
-            <!-- Backup & Restore Preferences -->
-            <div class="settings-card" id="settings-backup-card" style="margin-top: var(--space-4);">
-              <h3 class="settings-card__title">💾 Backup & Restore Preferences</h3>
-              <p style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
-                Configure options when exporting or importing your application configuration, exotics exclusions, and species targets.
-              </p>
-              <div class="form-group" style="margin-bottom: 0;">
-                <label class="control-toggle" title="When enabled, exported state files will include all loaded eBird observations in addition to settings and targets.">
-                  <input type="checkbox" id="chk-backup-include-data" />
-                  <span class="control-toggle__track"></span>
-                  Package eBird observations in exports
+                  Enable scouting window highlights
                 </label>
               </div>
             </div>
 
             <!-- Default Startup Region Preference -->
-            <div class="settings-card" id="settings-default-region-card" style="margin-top: var(--space-4);">
+            <div class="settings-card" id="settings-default-region-card">
               <h3 class="settings-card__title">📌 Default Startup Region</h3>
               <p id="settings-default-region-status" style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
                 No default startup region configured.
@@ -499,107 +600,18 @@
               </button>
             </div>
 
-            <!-- Custom Region Groupings Card -->
-            <div class="settings-card" id="settings-custom-groups-card" style="margin-top: var(--space-4);">
-              <h3 class="settings-card__title">🗺️ Custom Region Groupings</h3>
+            <!-- Backup & Restore Preferences -->
+            <div class="settings-card" id="settings-backup-card">
+              <h3 class="settings-card__title">💾 Backup & Restore Preferences</h3>
               <p style="font-size: 11px; color: var(--color-text-secondary); margin-bottom: var(--space-3); line-height: 1.4;">
-                Create custom county groups within a state (e.g. "Southern WI"). Select a state to draw visually on the map.
+                Include checklists observations in exported configurations backups.
               </p>
-              
-              <div class="settings-form">
-                <div class="form-group">
-                  <label for="group-name-input" class="form-label">Group Name</label>
-                  <input type="text" id="group-name-input" class="control-input" placeholder="e.g., Southern Wisconsin" autocomplete="off" />
-                </div>
-                <div class="form-group">
-                  <label for="group-state-select" class="form-label">State / Province</label>
-                  <select id="group-state-select" class="control-select">
-                    <option value="">Select State</option>
-                  </select>
-                </div>
-                
-                <!-- SVG map container for counties selection -->
-                <div id="group-map-container" style="display: none; width: 100%; height: 300px; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-md); position: relative; margin-top: var(--space-2); overflow: hidden;">
-                  <svg id="group-svg-map" style="width: 100%; height: 100%; display: block;" viewBox="0 0 500 400">
-                    <g id="group-map-paths"></g>
-                  </svg>
-                  <div id="group-map-tooltip" style="position: absolute; display: none; background: var(--color-bg-secondary); border: 1px solid var(--color-accent); border-radius: var(--radius-sm); padding: 4px 8px; font-size: 10px; pointer-events: none; z-index: 10;"></div>
-                </div>
-
-                <div id="group-selected-container" style="display: none; margin-top: var(--space-3);">
-                  <label class="form-label">Selected Counties</label>
-                  <div id="group-selected-list-box" style="display: flex; flex-wrap: wrap; gap: var(--space-1); max-height: 100px; overflow-y: auto; padding: var(--space-2); background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: var(--radius-sm);">
-                    <!-- Badges populated dynamically -->
-                  </div>
-                </div>
-
-                <button id="btn-save-custom-group" class="btn btn--primary" style="width: 100%; margin-top: var(--space-3);" disabled>
-                  💾 Save Custom Group
-                </button>
-              </div>
-
-              <!-- List of Saved Custom Groups -->
-              <div style="margin-top: var(--space-5);">
-                <h4 style="font-family: var(--font-family-display); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); margin-bottom: var(--space-2);">Saved Custom Groups</h4>
-                <div class="settings-list-wrapper" style="max-height: 200px; overflow-y: auto;">
-                  <table class="settings-table">
-                    <thead>
-                      <tr>
-                        <th>Group Name</th>
-                        <th>State</th>
-                        <th style="max-width: 120px;">Counties</th>
-                        <th style="text-align: right; width: 60px;">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody id="settings-custom-groups-list">
-                      <!-- Populated dynamically -->
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Right Column: Exclusions Lists -->
-          <div class="settings-column">
-            <!-- User Rules Card -->
-            <div class="settings-card">
-              <h3 class="settings-card__title">👤 Custom User Exclusions</h3>
-              <div class="settings-list-wrapper">
-                <table class="settings-table">
-                  <thead>
-                    <tr>
-                      <th>Species</th>
-                      <th>Region</th>
-                      <th style="text-align: right; width: 60px;">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody id="user-exclusions-body">
-                    <!-- Populated dynamically -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- System Rules Card -->
-            <div class="settings-card" style="margin-top: var(--space-4);">
-              <h3 class="settings-card__title">🏛️ System Default Exclusions</h3>
-              <p class="settings-card__desc" style="font-size: var(--font-size-xs); color: var(--color-text-tertiary); margin-bottom: var(--space-3);">
-                These are standard midwestern exotics/non-countable species. Toggle them off if you want to include them in your counts.
-              </p>
-              <div class="settings-list-wrapper">
-                <table class="settings-table">
-                  <thead>
-                    <tr>
-                      <th>Species</th>
-                      <th>Region</th>
-                      <th style="text-align: right; width: 100px;">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="system-exclusions-body">
-                    <!-- Populated dynamically -->
-                  </tbody>
-                </table>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="control-toggle" title="When enabled, exported state files will include all loaded eBird observations in addition to settings and targets.">
+                  <input type="checkbox" id="chk-backup-include-data" />
+                  <span class="control-toggle__track"></span>
+                  Package eBird observations in backups
+                </label>
               </div>
             </div>
           </div>

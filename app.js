@@ -1210,13 +1210,10 @@
       { key: 'commonName', label: 'Species', sortable: true },
       ...yearsToShow.map(y => {
         const filterVal = state.yearFilters[y] || 'all';
-        let suffix = '';
-        if (filterVal === 'seen') suffix = ' ✅';
-        else if (filterVal === 'unseen') suffix = ' ❌';
         return {
           key: 'year-' + y,
           year: y,
-          label: String(y) + suffix,
+          label: String(y),
           sortable: false,
           filterable: true,
           filterVal: filterVal
@@ -1775,10 +1772,10 @@
         DOM.tickStatTopLabel.textContent = isStateLevel ? '🏆 Top State' : '🏆 Top County';
       }
 
-      DOM.tickStatTotal.textContent = state.tickMilestones.length.toLocaleString();
-      DOM.tickStatCounties.textContent = subregions.size.toLocaleString();
-      DOM.tickStatTop.textContent = topRegionName;
-      DOM.tickStatTopCount.textContent = `${topRegionCount.toLocaleString()} species`;
+      if (DOM.tickStatTotal) DOM.tickStatTotal.textContent = state.tickMilestones.length.toLocaleString();
+      if (DOM.tickStatCounties) DOM.tickStatCounties.textContent = subregions.size.toLocaleString();
+      if (DOM.tickStatTop) DOM.tickStatTop.textContent = topRegionName;
+      if (DOM.tickStatTopCount) DOM.tickStatTopCount.textContent = `${topRegionCount.toLocaleString()} species`;
 
       if (isStateLevel) {
         if (DOM.tickStatTotalDesc) DOM.tickStatTotalDesc.textContent = 'Across all states';
@@ -2457,11 +2454,13 @@
         stateCode = code ? `US-${code}` : '';
         lookupKey = stateCode;
         
-        for (const [key, sub] of subregionsMap) {
-          if (key === stateCode || key.endsWith(code)) {
-            totalCount = sub.speciesCount;
-            addedCount = addedCounts.get(key) || 0;
-            break;
+        if (code) {
+          for (const [key, sub] of subregionsMap) {
+            if (key === stateCode || key.endsWith(code)) {
+              totalCount = sub.speciesCount;
+              addedCount = addedCounts.get(key) || 0;
+              break;
+            }
           }
         }
       } else {
@@ -3188,7 +3187,7 @@
   }
 
   function renderTimeframeAdditions() {
-    DOM.timelineAdditionsList.innerHTML = '';
+    if (DOM.timelineAdditionsList) DOM.timelineAdditionsList.innerHTML = '';
     
     const filtered = state.tickMilestones.filter(m => {
       if (state.selectedMapCounty && m.county !== state.selectedMapCounty) return false;
@@ -3197,7 +3196,9 @@
       return true;
     });
 
-    DOM.timelineAdditionsTitle.textContent = `⏱️ Timeframe Additions (${filtered.length.toLocaleString()})`;
+    if (DOM.timelineAdditionsTitle) {
+      DOM.timelineAdditionsTitle.textContent = `⏱️ Timeframe Additions (${filtered.length.toLocaleString()})`;
+    }
 
     if (filtered.length === 0) {
       const empty = document.createElement('li');
@@ -3206,7 +3207,7 @@
       empty.style.color = 'var(--color-text-tertiary)';
       empty.style.fontSize = 'var(--font-size-xs)';
       empty.textContent = 'No additions found in this date window.';
-      DOM.timelineAdditionsList.appendChild(empty);
+      if (DOM.timelineAdditionsList) DOM.timelineAdditionsList.appendChild(empty);
       return;
     }
 
@@ -3253,7 +3254,7 @@
       fragment.appendChild(li);
     }
 
-    DOM.timelineAdditionsList.appendChild(fragment);
+    if (DOM.timelineAdditionsList) DOM.timelineAdditionsList.appendChild(fragment);
   }
 
   function handleMapNodeClick(countyName) {
