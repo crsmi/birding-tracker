@@ -3118,19 +3118,65 @@
 
     if (isTimeframeActive) {
       const highlightPoints = [];
+      
+      const startDate = state.tickDateStart ? (() => {
+        const parts = state.tickDateStart.split('-');
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+      })() : null;
+      
+      const endDate = state.tickDateEnd ? (() => {
+        const parts = state.tickDateEnd.split('-');
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+      })() : null;
+
+      // Find initial count before the start date
+      let initialCount = 0;
+      if (startDate) {
+        let runningCount = 0;
+        for (const m of milestones) {
+          const parts = m.date.split('-');
+          const mDate = new Date(parts[0], parts[1] - 1, parts[2]);
+          if (mDate < startDate) {
+            initialCount = runningCount + 1;
+          } else {
+            break;
+          }
+          runningCount++;
+        }
+        highlightPoints.push({
+          x: startDate,
+          y: initialCount
+        });
+      }
+
+      // Add points during timeframe
       let runningCount = 0;
+      let lastCountInTimeframe = initialCount;
       for (const m of milestones) {
         runningCount++;
-        const inRange = (!state.tickDateStart || m.date >= state.tickDateStart) &&
-                        (!state.tickDateEnd || m.date <= state.tickDateEnd);
-        if (inRange) {
-          const parts = m.date.split('-');
+        const parts = m.date.split('-');
+        const mDate = new Date(parts[0], parts[1] - 1, parts[2]);
+        
+        const afterStart = !startDate || mDate >= startDate;
+        const beforeEnd = !endDate || mDate <= endDate;
+        
+        if (afterStart && beforeEnd) {
           highlightPoints.push({
-            x: new Date(parts[0], parts[1] - 1, parts[2]),
+            x: mDate,
             y: runningCount
           });
+          lastCountInTimeframe = runningCount;
         }
       }
+
+      // Add final point at end date
+      if (endDate) {
+        highlightPoints.push({
+          x: endDate,
+          y: lastCountInTimeframe
+        });
+      }
+
       datasets.push({
         label: 'Timeframe Window',
         data: highlightPoints,
