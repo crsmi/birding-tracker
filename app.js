@@ -3084,21 +3084,69 @@
     const ctx = $('tick-chart').getContext('2d');
     if (!ctx || milestones.length === 0) return;
 
+    const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+
+    const startDate = state.tickDateStart ? (() => {
+      const parts = state.tickDateStart.split('-');
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    })() : null;
+
+    const endDate = state.tickDateEnd ? (() => {
+      const parts = state.tickDateEnd.split('-');
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    })() : null;
+
     const chartPoints = [];
     let count = 0;
+    let startDateInserted = false;
+    let endDateInserted = false;
 
     for (const m of milestones) {
-      count++;
       const parts = m.date.split('-');
-      const date = new Date(parts[0], parts[1] - 1, parts[2]);
+      const mDate = new Date(parts[0], parts[1] - 1, parts[2]);
+
+      if (isTimeframeActive && startDate && !startDateInserted && mDate >= startDate) {
+        chartPoints.push({
+          x: startDate,
+          y: count,
+          milestone: null
+        });
+        startDateInserted = true;
+      }
+
+      if (isTimeframeActive && endDate && !endDateInserted && mDate > endDate) {
+        chartPoints.push({
+          x: endDate,
+          y: count,
+          milestone: null
+        });
+        endDateInserted = true;
+      }
+
+      count++;
       chartPoints.push({
-        x: date,
-        y: count
+        x: mDate,
+        y: count,
+        milestone: m
       });
     }
 
-    // If timeframe is active, we highlight that segment in red and fade the historical trend to grey
-    const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
+    if (isTimeframeActive && startDate && !startDateInserted) {
+      chartPoints.push({
+        x: startDate,
+        y: count,
+        milestone: null
+      });
+      startDateInserted = true;
+    }
+    if (isTimeframeActive && endDate && !endDateInserted) {
+      chartPoints.push({
+        x: endDate,
+        y: count,
+        milestone: null
+      });
+      endDateInserted = true;
+    }
 
     // Build datasets - main line always shown in premium green/teal
     const datasets = [{
@@ -3117,65 +3165,11 @@
     }];
 
     if (isTimeframeActive) {
-      const highlightPoints = [];
-      
-      const startDate = state.tickDateStart ? (() => {
-        const parts = state.tickDateStart.split('-');
-        return new Date(parts[0], parts[1] - 1, parts[2]);
-      })() : null;
-      
-      const endDate = state.tickDateEnd ? (() => {
-        const parts = state.tickDateEnd.split('-');
-        return new Date(parts[0], parts[1] - 1, parts[2]);
-      })() : null;
-
-      // Find initial count before the start date
-      let initialCount = 0;
-      if (startDate) {
-        let runningCount = 0;
-        for (const m of milestones) {
-          const parts = m.date.split('-');
-          const mDate = new Date(parts[0], parts[1] - 1, parts[2]);
-          if (mDate < startDate) {
-            initialCount = runningCount + 1;
-          } else {
-            break;
-          }
-          runningCount++;
-        }
-        highlightPoints.push({
-          x: startDate,
-          y: initialCount
-        });
-      }
-
-      // Add points during timeframe
-      let runningCount = 0;
-      let lastCountInTimeframe = initialCount;
-      for (const m of milestones) {
-        runningCount++;
-        const parts = m.date.split('-');
-        const mDate = new Date(parts[0], parts[1] - 1, parts[2]);
-        
-        const afterStart = !startDate || mDate >= startDate;
-        const beforeEnd = !endDate || mDate <= endDate;
-        
-        if (afterStart && beforeEnd) {
-          highlightPoints.push({
-            x: mDate,
-            y: runningCount
-          });
-          lastCountInTimeframe = runningCount;
-        }
-      }
-
-      // Add final point at end date
-      if (endDate) {
-        highlightPoints.push({
-          x: endDate,
-          y: lastCountInTimeframe
-        });
-      }
+      const highlightPoints = chartPoints.filter(cp => {
+        const afterStart = !startDate || cp.x >= startDate;
+        const beforeEnd = !endDate || cp.x <= endDate;
+        return afterStart && beforeEnd;
+      });
 
       datasets.push({
         label: 'Timeframe Window',
@@ -3220,15 +3214,16 @@
             filter: (tooltipItem) => tooltipItem.datasetIndex === 0,
             callbacks: {
               title: (context) => {
-                const idx = context[0].dataIndex;
-                const m = milestones[idx];
-                const parts = m.date.split('-');
-                const d = new Date(parts[0], parts[1] - 1, parts[2]);
-                return formatDateLabel(d);
+                if (!context || context.length === 0) return '';
+                const raw = context[0].raw;
+                if (!raw || !raw.x) return '';
+                return formatDateLabel(raw.x);
               },
               label: (context) => {
-                const idx = context.dataIndex;
-                const m = milestones[idx];
+                if (!context || !context.raw) return '';
+                const raw = context.raw;
+                const m = raw.milestone;
+                if (!m) return `Total: ${context.parsed.y} ticks`;
                 return [
                   `Total: ${context.parsed.y} ticks`,
                   `New Sighting: ${m.commonName}`,
