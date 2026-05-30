@@ -1206,7 +1206,6 @@
     }
 
     const headerCols = [
-      { key: 'target', label: '🎯', sortable: false },
       { key: 'commonName', label: 'Species', sortable: true },
       ...yearsToShow.map(y => {
         const filterVal = state.yearFilters[y] || 'all';
@@ -1289,10 +1288,6 @@
     if (totalsRow) {
       totalsRow.innerHTML = '';
       
-      const tdTarget = document.createElement('td');
-      tdTarget.style.cssText = 'padding: 4px var(--space-3); border-bottom: 1.5px solid var(--color-border);';
-      totalsRow.appendChild(tdTarget);
-      
       const tdLabel = document.createElement('td');
       tdLabel.style.cssText = 'padding: 4px var(--space-3); font-family: var(--font-family-display); font-weight: 700; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1.5px solid var(--color-border);';
       tdLabel.textContent = 'Yearly Totals';
@@ -1351,28 +1346,33 @@
         tr.classList.add('row--target');
       }
 
-      // Target toggle
-      const tdTarget = document.createElement('td');
+      // Species name (with integrated target toggle on the left)
+      const tdName = document.createElement('td');
+      tdName.className = 'col-commonName';
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'species-name';
+
       const toggleBtn = document.createElement('button');
       toggleBtn.className = 'target-toggle' + (sp.isTarget ? ' is-target' : '');
       toggleBtn.textContent = sp.isTarget ? '🎯' : '○';
       toggleBtn.title = sp.isTarget ? 'Remove target' : 'Mark as target';
       toggleBtn.addEventListener('click', () => handleToggleTarget(sp.commonName, !sp.isTarget));
-      tdTarget.appendChild(toggleBtn);
-      tr.appendChild(tdTarget);
+      nameDiv.appendChild(toggleBtn);
 
-      // Species name
-      const tdName = document.createElement('td');
-      const nameDiv = document.createElement('div');
-      nameDiv.className = 'species-name';
+      const textDiv = document.createElement('div');
+      textDiv.className = 'species-name__text';
+
       const commonSpan = document.createElement('span');
       commonSpan.className = 'species-name__common';
       commonSpan.textContent = sp.commonName;
+
       const sciSpan = document.createElement('span');
       sciSpan.className = 'species-name__scientific';
       sciSpan.textContent = sp.scientificName;
-      nameDiv.appendChild(commonSpan);
-      nameDiv.appendChild(sciSpan);
+
+      textDiv.appendChild(commonSpan);
+      textDiv.appendChild(sciSpan);
+      nameDiv.appendChild(textDiv);
       tdName.appendChild(nameDiv);
       tr.appendChild(tdName);
 
@@ -1394,24 +1394,25 @@
 
       // Earliest
       const tdEarliest = document.createElement('td');
-      tdEarliest.className = 'date-cell';
+      tdEarliest.className = 'date-cell col-earliest';
       tdEarliest.textContent = sp.earliestLabel;
       tr.appendChild(tdEarliest);
 
       // Latest
       const tdLatest = document.createElement('td');
-      tdLatest.className = 'date-cell';
+      tdLatest.className = 'date-cell col-latest';
       tdLatest.textContent = sp.latestLabel;
       tr.appendChild(tdLatest);
 
       // Count
       const tdCount = document.createElement('td');
-      tdCount.className = 'date-cell';
+      tdCount.className = 'date-cell col-count';
       tdCount.textContent = sp.totalSightings.toLocaleString();
       tr.appendChild(tdCount);
 
       // Status
       const tdStatus = document.createElement('td');
+      tdStatus.className = 'col-status';
       if (sp.isTarget && sp.seenInTargetYear) {
         const found = document.createElement('span');
         found.style.cssText = 'color: var(--color-success); font-size: var(--font-size-xs); font-weight: 600;';

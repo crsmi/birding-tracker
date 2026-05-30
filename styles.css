@@ -651,21 +651,34 @@ a:hover {
   background: var(--color-surface-hover);
 }
 
-/* Species name cell */
+/* Species name cell (with integrated target selector) */
 .species-name {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+.species-name__text {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  min-width: 0;
+  flex: 1;
 }
 .species-name__common {
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
-  font-size: var(--font-size-base);
+  font-size: clamp(12px, 1.1vw, var(--font-size-base)); /* Fluid sizing */
+  white-space: normal; /* No truncation, let it wrap naturally */
+  line-height: 1.3;
+  word-break: break-word;
 }
 .species-name__scientific {
-  font-size: var(--font-size-xs);
+  font-size: clamp(10px, 0.9vw, var(--font-size-xs)); /* Fluid sizing */
   color: var(--color-text-tertiary);
   font-style: italic;
+  transition: opacity var(--transition-base);
 }
 
 /* Year checkmarks */
@@ -692,8 +705,8 @@ a:hover {
 
 /* Target toggle in table */
 .target-toggle {
-  width: 28px;
-  height: 28px;
+  width: 24px; /* Scaled down slightly to fit a narrower column */
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -702,7 +715,7 @@ a:hover {
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all var(--transition-fast);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm); /* Slightly smaller emoji */
   color: var(--color-text-tertiary);
   line-height: 1;
 }
@@ -1924,40 +1937,27 @@ a:hover {
   left: 0;
   z-index: 10;
   background: var(--color-surface);
-}
-.data-grid th:nth-child(2),
-.data-grid td:nth-child(2) {
-  position: sticky;
-  left: 50px; /* Width of Target toggle column (50px in YoY grid) */
-  z-index: 10;
-  background: var(--color-surface);
   border-right: 2px solid var(--color-border);
 }
-.data-grid th:nth-child(1),
-.data-grid th:nth-child(2) {
+.data-grid th:nth-child(1) {
   background: var(--color-bg-elevated) !important;
   z-index: 11;
 }
 
 /* Opaque row backgrounds to prevent cell scroll overlap transparent look */
-.data-grid tbody tr:hover td:nth-child(1),
-.data-grid tbody tr:hover td:nth-child(2) {
+.data-grid tbody tr:hover td:nth-child(1) {
   background: var(--color-surface-hover) !important;
 }
-.data-grid tbody tr.row--target td:nth-child(1),
-.data-grid tbody tr.row--target td:nth-child(2) {
+.data-grid tbody tr.row--target td:nth-child(1) {
   background: hsl(175, 65%, 6%) !important;
 }
-.data-grid tbody tr.row--target:hover td:nth-child(1),
-.data-grid tbody tr.row--target:hover td:nth-child(2) {
+.data-grid tbody tr.row--target:hover td:nth-child(1) {
   background: hsla(175, 65%, 48%, 0.12) !important;
 }
-.data-grid tbody tr.row--past-due td:nth-child(1),
-.data-grid tbody tr.row--past-due td:nth-child(2) {
+.data-grid tbody tr.row--past-due td:nth-child(1) {
   background: hsl(30, 100%, 6%) !important;
 }
-.data-grid tbody tr.row--past-due:hover td:nth-child(1),
-.data-grid tbody tr.row--past-due:hover td:nth-child(2) {
+.data-grid tbody tr.row--past-due:hover td:nth-child(1) {
   background: hsla(30, 100%, 55%, 0.12) !important;
 }
 
@@ -2335,28 +2335,21 @@ body {
 .data-grid {
   table-layout: fixed !important;
   width: 100%;
-  min-width: 950px !important; /* Force a minimum width to prevent species column collapse */
-  max-width: 1100px !important; /* Cap table width on widescreen to prevent excessive species column stretch */
-}
-
-#grid-header-banner {
-  min-width: 950px !important;
+  min-width: 900px !important; /* Allow tighter table widths */
   max-width: 1100px !important;
 }
 
-/* Target column */
-.data-grid th[data-key="target"],
-.data-grid td:nth-child(1) {
-  width: 50px !important;
-  min-width: 50px !important;
-  text-align: center;
+#grid-header-banner {
+  min-width: 900px !important;
+  max-width: 1100px !important;
 }
 
-/* Species column - grows to take remaining space */
+/* Species column (now the first column) */
 .data-grid th[data-key="commonName"],
-.data-grid td:nth-child(2) {
-  width: auto !important;
-  min-width: 180px !important; /* Keep it readable and prevent text spilling on narrow screens */
+.data-grid td.col-commonName {
+  width: 200px !important; /* Restrict Species column to 200px to avoid excessive empty white space */
+  min-width: 200px !important;
+  max-width: 200px !important;
 }
 
 /* Year columns */
@@ -2390,26 +2383,75 @@ body {
 /* Earliest & Latest columns */
 .data-grid th[data-key="earliest"],
 .data-grid th[data-key="latest"],
-.data-grid td:nth-child(8),
-.data-grid td:nth-child(9) {
-  width: 100px !important;
-  min-width: 100px !important;
+.data-grid td.col-earliest,
+.data-grid td.col-latest {
+  width: 90px !important; /* Slightly narrower date columns to save another 20px */
+  min-width: 90px !important;
 }
 
 /* Count column */
 .data-grid th[data-key="totalSightings"],
-.data-grid td:nth-child(10) {
-  width: 80px !important;
-  min-width: 80px !important;
+.data-grid td.col-count {
+  width: 70px !important; /* Slightly narrower count column (reduced from 80px) */
+  min-width: 70px !important;
   text-align: right;
 }
 
-/* Status column */
+/* Status column (on the right) */
 .data-grid th[data-key="status"],
-.data-grid td:nth-child(11) {
-  width: 110px !important;
-  min-width: 110px !important;
+.data-grid td.col-status {
+  width: 80px !important; /* Narrower status column (reduced from 110px) */
+  min-width: 80px !important;
   text-align: center;
+  font-size: 11px;
+}
+
+/* Responsive Grid Viewports (Component E enhancements) */
+@media (max-width: 1150px) {
+  .species-name__scientific {
+    display: none; /* Hide scientific name on medium screens to save vertical space */
+  }
+}
+
+@media (max-width: 1024px) {
+  .data-grid {
+    min-width: 700px !important; /* Allow table to shrink beautifully */
+  }
+  #grid-header-banner {
+    min-width: 700px !important;
+  }
+  /* Hide the target status column on the right on smaller viewports to free up 80px */
+  .data-grid th[data-key="status"],
+  .data-grid td.col-status {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .data-grid {
+    min-width: 500px !important; /* Shrink even further */
+  }
+  #grid-header-banner {
+    min-width: 500px !important;
+  }
+  /* Make the species column narrower on very small viewports */
+  .data-grid th[data-key="commonName"],
+  .data-grid td.col-commonName {
+    width: 160px !important;
+    min-width: 160px !important;
+    max-width: 160px !important;
+  }
+  /* Hide target selector icons on very small screens to fit text */
+  .species-name .target-toggle {
+    display: none !important;
+  }
+  /* Hide earliest/latest date columns on extra small viewports to save another 180px */
+  .data-grid th[data-key="earliest"],
+  .data-grid th[data-key="latest"],
+  .data-grid td.col-earliest,
+  .data-grid td.col-latest {
+    display: none !important;
+  }
 }
 
 /* Target Scouting Row Highlights & Column Locks (Component D) */
@@ -2419,12 +2461,10 @@ body {
 .data-grid tbody tr.row-window-before:hover {
   background: rgba(59, 130, 246, 0.08) !important;
 }
-.data-grid tbody tr.row-window-before td:nth-child(1),
-.data-grid tbody tr.row-window-before td:nth-child(2) {
+.data-grid tbody tr.row-window-before td:nth-child(1) {
   background: hsl(220, 30%, 9%) !important; /* Slightly blue tint dark background */
 }
-.data-grid tbody tr.row-window-before:hover td:nth-child(1),
-.data-grid tbody tr.row-window-before:hover td:nth-child(2) {
+.data-grid tbody tr.row-window-before:hover td:nth-child(1) {
   background: hsl(220, 30%, 14%) !important;
 }
 
@@ -2435,12 +2475,10 @@ body {
 .data-grid tbody tr.row-window-active:hover {
   background: rgba(20, 184, 166, 0.12) !important;
 }
-.data-grid tbody tr.row-window-active td:nth-child(1),
-.data-grid tbody tr.row-window-active td:nth-child(2) {
+.data-grid tbody tr.row-window-active td:nth-child(1) {
   background: hsl(172, 30%, 8%) !important; /* Slightly teal tint dark background */
 }
-.data-grid tbody tr.row-window-active:hover td:nth-child(1),
-.data-grid tbody tr.row-window-active:hover td:nth-child(2) {
+.data-grid tbody tr.row-window-active:hover td:nth-child(1) {
   background: hsl(172, 30%, 12%) !important;
 }
 
@@ -2450,12 +2488,10 @@ body {
 .data-grid tbody tr.row-window-after:hover {
   background: rgba(245, 158, 11, 0.08) !important;
 }
-.data-grid tbody tr.row-window-after td:nth-child(1),
-.data-grid tbody tr.row-window-after td:nth-child(2) {
+.data-grid tbody tr.row-window-after td:nth-child(1) {
   background: hsl(35, 30%, 9%) !important; /* Slightly amber tint dark background */
 }
-.data-grid tbody tr.row-window-after:hover td:nth-child(1),
-.data-grid tbody tr.row-window-after:hover td:nth-child(2) {
+.data-grid tbody tr.row-window-after:hover td:nth-child(1) {
   background: hsl(35, 30%, 14%) !important;
 }
 
