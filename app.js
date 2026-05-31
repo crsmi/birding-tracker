@@ -167,6 +167,8 @@
     DOM.tickDateStart = $('tick-date-start');
     DOM.tickDateEnd = $('tick-date-end');
     DOM.btnClearDateFilter = $('btn-clear-date-filter');
+    DOM.quickPickYearSelect = $('quick-pick-year-select');
+    DOM.quickPickRangeSelect = $('quick-pick-range-select');
     DOM.tickSearchSubregions = $('tick-search-subregions');
     DOM.subregionListBody = $('subregion-list-body');
     DOM.timelineAdditionsList = $('timeline-additions-list');
@@ -1720,6 +1722,41 @@
     showLoading('Rendering Tick Explorer...');
 
     try {
+      // Dynamically populate year selector options based on unique years in the active dataset
+      if (DOM.quickPickYearSelect) {
+        const currentYearVal = DOM.quickPickYearSelect.value;
+        const years = new Set();
+        for (const obs of state.observations) {
+          if (obs.date) {
+            const yStr = obs.date.substring(0, 4);
+            if (yStr && !isNaN(yStr)) {
+              years.add(parseInt(yStr));
+            }
+          }
+        }
+        const sortedYears = Array.from(years).sort((a, b) => b - a);
+
+        DOM.quickPickYearSelect.innerHTML = '<option value="">Year...</option>';
+        for (const yr of sortedYears) {
+          const opt = document.createElement('option');
+          opt.value = yr.toString();
+          opt.textContent = yr.toString();
+          DOM.quickPickYearSelect.appendChild(opt);
+        }
+        let activeYearVal = currentYearVal;
+        if (!activeYearVal && state.tickDateStart) {
+          const startYear = state.tickDateStart.substring(0, 4);
+          if (state.tickDateStart.endsWith('-01-01')) {
+            if (!state.tickDateEnd || state.tickDateEnd.startsWith(startYear)) {
+              activeYearVal = startYear;
+            }
+          }
+        }
+        if (activeYearVal && years.has(parseInt(activeYearVal))) {
+          DOM.quickPickYearSelect.value = activeYearVal;
+        }
+      }
+
       const centroids = computeTickMilestones();
 
 
@@ -5054,25 +5091,42 @@
       });
     }
 
-    // Quick-pick date presets
-    document.querySelectorAll('.quick-pick-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const preset = btn.dataset.preset;
+    // Quick-pick year select dropdown
+    if (DOM.quickPickYearSelect) {
+      DOM.quickPickYearSelect.addEventListener('change', (e) => {
+        const year = e.target.value;
+        if (!year) return;
+
+        const start = new Date(parseInt(year), 0, 1);
+        const end = new Date(parseInt(year), 11, 31);
+
+        state.tickDateStart = formatDateISO(start);
+        state.tickDateEnd = formatDateISO(end);
+        DOM.tickDateStart.value = state.tickDateStart;
+        DOM.tickDateEnd.value = state.tickDateEnd;
+
+        // Reset the range dropdown selection
+        if (DOM.quickPickRangeSelect) {
+          DOM.quickPickRangeSelect.value = '';
+        }
+
+        renderTickExplorer();
+      });
+    }
+
+    // Quick-pick range select dropdown
+    if (DOM.quickPickRangeSelect) {
+      DOM.quickPickRangeSelect.addEventListener('change', (e) => {
+        const preset = e.target.value;
+        if (!preset) return;
+
         const today = new Date();
         let start, end;
 
         switch (preset) {
-          case 'this-year':
-            start = new Date(today.getFullYear(), 0, 1);
-            end = today;
-            break;
           case 'this-month':
             start = new Date(today.getFullYear(), today.getMonth(), 1);
             end = today;
-            break;
-          case 'last-year':
-            start = new Date(today.getFullYear() - 1, 0, 1);
-            end = new Date(today.getFullYear() - 1, 11, 31);
             break;
           case 'last-7':
             start = new Date(today.getTime() - 7 * 86400000);
@@ -5095,13 +5149,14 @@
         DOM.tickDateStart.value = state.tickDateStart;
         DOM.tickDateEnd.value = state.tickDateEnd;
 
-        // Highlight active quick pick
-        document.querySelectorAll('.quick-pick-btn').forEach(b => b.classList.remove('is-active'));
-        btn.classList.add('is-active');
+        // Reset the year dropdown selection
+        if (DOM.quickPickYearSelect) {
+          DOM.quickPickYearSelect.value = '';
+        }
 
         renderTickExplorer();
       });
-    });
+    }
 
     // Download plain map image
     if (DOM.btnDownloadMap) {
@@ -5319,7 +5374,12 @@
   }
 
   function clearQuickPickActive() {
-    document.querySelectorAll('.quick-pick-btn').forEach(b => b.classList.remove('is-active'));
+    if (DOM.quickPickYearSelect) {
+      DOM.quickPickYearSelect.value = '';
+    }
+    if (DOM.quickPickRangeSelect) {
+      DOM.quickPickRangeSelect.value = '';
+    }
   }
 
   function repositionHeaderActions() {
@@ -5362,8 +5422,7 @@
     state.tickDateEnd = formatDateISO(today);
     DOM.tickDateStart.value = state.tickDateStart;
     DOM.tickDateEnd.value = state.tickDateEnd;
-    const thisYearBtn = document.querySelector('.quick-pick-btn[data-preset="this-year"]');
-    if (thisYearBtn) thisYearBtn.classList.add('is-active');
+
 
     initDashboard();
   }

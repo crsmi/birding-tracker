@@ -280,17 +280,22 @@
                 End Date
                 <input type="date" id="tick-date-end" class="control-date control-date--sm" />
               </label>
-              <div class="analyzer-date-label">
-                Quick Picks
-                <div class="quick-pick-row">
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="this-year">This Year</button>
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="this-month">This Month</button>
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-year">Last Year</button>
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-7">Last 7 Days</button>
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-30">Last 30 Days</button>
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-90">Last 90 Days</button>
-                </div>
-              </div>
+              <label class="analyzer-date-label">
+                Quick Year
+                <select id="quick-pick-year-select" class="control-select control-select--sm" style="height: 32px; min-width: 90px; font-size: var(--font-size-xs); padding: 4px 8px;">
+                  <option value="">Year...</option>
+                </select>
+              </label>
+              <label class="analyzer-date-label">
+                Quick Range
+                <select id="quick-pick-range-select" class="control-select control-select--sm" style="height: 32px; min-width: 125px; font-size: var(--font-size-xs); padding: 4px 8px;">
+                  <option value="">Range...</option>
+                  <option value="this-month">This Month</option>
+                  <option value="last-7">Last 7 Days</option>
+                  <option value="last-30">Last 30 Days</option>
+                  <option value="last-90">Last 90 Days</option>
+                </select>
+              </label>
               <label class="analyzer-date-label">
                 Geographic Level
                 <select id="tick-level" class="control-select control-select--sm" style="height: 32px; min-width: 130px; font-size: var(--font-size-xs); padding: 4px 8px;">
@@ -300,7 +305,7 @@
               </label>
               <label class="analyzer-date-label">
                 Map Mode
-                <select id="map-color-mode" class="control-select control-select--sm" style="height: 32px; min-width: 190px; font-size: var(--font-size-xs); padding: 4px 8px;">
+                <select id="map-color-mode" class="control-select control-select--sm" style="height: 32px; min-width: 190px; max-width: 200px; font-size: var(--font-size-xs); padding: 4px 8px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
                   <option value="total">📊 Cumulative Ticks</option>
                   <option value="added">⏱️ Timeframe Additions</option>
                   <option value="timeframe-ticks">📅 Timeframe Ticks</option>
