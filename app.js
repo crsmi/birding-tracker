@@ -1786,19 +1786,36 @@
         if (DOM.tickStatCountiesDesc) DOM.tickStatCountiesDesc.textContent = 'Unique counties logged';
       }
 
-      // Dynamic Map Color Mode Validation
+      // Dynamic Map Mode Validation & Dynamic Selector Terminology
       const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
       if (DOM.mapColorMode) {
-        const addedOption = DOM.mapColorMode.options[1]; // Timeframe Additions
-        if (addedOption) {
-          if (!isTimeframeActive) {
-            addedOption.disabled = true;
-            if (DOM.mapColorMode.value === 'added') {
-              DOM.mapColorMode.value = 'total';
-            }
-          } else {
-            addedOption.disabled = false;
+        const addedOption = Array.from(DOM.mapColorMode.options).find(o => o.value === 'added');
+        const tfTicksOption = Array.from(DOM.mapColorMode.options).find(o => o.value === 'timeframe-ticks');
+        const cumulativeOption = Array.from(DOM.mapColorMode.options).find(o => o.value === 'total');
+
+        if (!isTimeframeActive) {
+          if (addedOption) addedOption.disabled = true;
+          if (tfTicksOption) tfTicksOption.disabled = true;
+          if (DOM.mapColorMode.value === 'added' || DOM.mapColorMode.value === 'timeframe-ticks') {
+            DOM.mapColorMode.value = 'total';
           }
+        } else {
+          if (addedOption) addedOption.disabled = false;
+          if (tfTicksOption) tfTicksOption.disabled = false;
+        }
+
+        if (cumulativeOption) {
+          const maxObsDate = state.tickMilestones.length > 0 ? state.tickMilestones[state.tickMilestones.length - 1].date : null;
+          
+          let label = '📊 Cumulative Ticks';
+          if (!isTimeframeActive || !state.tickDateEnd || (maxObsDate && state.tickDateEnd >= maxObsDate)) {
+            label = '📊 Total Lifetime Ticks';
+          } else if (state.tickDateEnd) {
+            const parts = state.tickDateEnd.split('-');
+            const d = new Date(parts[0], parts[1] - 1, parts[2]);
+            label = `📊 Cumulative Ticks (as of ${formatDateLabel(d)})`;
+          }
+          cumulativeOption.textContent = label;
         }
       }
 
@@ -1846,22 +1863,28 @@
 
   function renderSubregionsList(subregionsMap) {
     const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+    const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
 
     // Update table headers dynamically with sort indicators and styling
     const tableEl = DOM.subregionListBody.closest('table');
     if (tableEl) {
       const ths = tableEl.querySelectorAll('thead th.th-sortable');
-      const sortCols = ['name', 'state', 'speciesCount', 'startTotal', 'endTotal', 'added'];
+      const sortCols = ['name', 'state', 'speciesCount', 'startTotal', 'endTotal', 'added', 'timeframeTicks'];
       
       ths.forEach((th, idx) => {
         const colType = sortCols[idx];
         let baseText = '';
         if (idx === 0) baseText = isStateLevel ? 'State' : 'County';
         else if (idx === 1) baseText = isStateLevel ? 'Country' : 'State';
-        else if (idx === 2) baseText = 'Total Ticks';
+        else if (idx === 2) {
+          const maxObsDate = state.tickMilestones.length > 0 ? state.tickMilestones[state.tickMilestones.length - 1].date : null;
+          const isPastCutoff = isTimeframeActive && state.tickDateEnd && (maxObsDate && state.tickDateEnd < maxObsDate);
+          baseText = isPastCutoff ? 'Cumulative' : 'Total Ticks';
+        }
         else if (idx === 3) baseText = 'Start';
         else if (idx === 4) baseText = 'End';
         else if (idx === 5) baseText = 'Added';
+        else if (idx === 6) baseText = 'Seen';
 
         // Add sort indicator icon
         let icon = '';
@@ -1936,6 +1959,32 @@
       }
     }
 
+    // Compute timeframe ticks (all unique species seen during timeframe) for each subregion
+    const timeframeTicksCounts = new Map();
+    if (isTimeframeActive) {
+      for (const obs of state.observations) {
+        if (!obs.state || !obs.commonName) continue;
+        if (!isStateLevel && !obs.county) continue;
+
+        if (state.showTrueSpeciesOnly && !isTrueSpecies(obs.commonName, obs.scientificName)) continue;
+        if (isNonCountable(obs.commonName, obs.state, isStateLevel ? '' : obs.county)) continue;
+
+        let name = obs.commonName;
+        if (state.aggregateSubspecies) {
+          name = stripSubspecies(name);
+        }
+
+        if (state.tickDateStart && obs.date < state.tickDateStart) continue;
+        if (state.tickDateEnd && obs.date > state.tickDateEnd) continue;
+
+        const cKey = isStateLevel ? obs.state : `${obs.state}::${obs.county}`;
+        if (!timeframeTicksCounts.has(cKey)) {
+          timeframeTicksCounts.set(cKey, new Set());
+        }
+        timeframeTicksCounts.get(cKey).add(name);
+      }
+    }
+
     DOM.subregionListBody.innerHTML = '';
     const items = Array.from(subregionsMap.values());
 
@@ -1958,6 +2007,8 @@
       const endTotal = endTotalSet ? endTotalSet.size : item.speciesCount;
       const startTotalSet = startTotalCounts.get(cKey);
       const startTotal = startTotalSet ? startTotalSet.size : 0;
+      const tfTicksSet = timeframeTicksCounts.get(cKey);
+      const timeframeTicks = tfTicksSet ? tfTicksSet.size : 0;
       const name = isStateLevel ? cleanStateCode(item.state) : item.county;
 
       return {
@@ -1965,7 +2016,8 @@
         name,
         added,
         endTotal,
-        startTotal
+        startTotal,
+        timeframeTicks
       };
     });
 
@@ -1993,6 +2045,9 @@
       } else if (col === 'added') {
         valA = a.added;
         valB = b.added;
+      } else if (col === 'timeframeTicks') {
+        valA = a.timeframeTicks;
+        valB = b.timeframeTicks;
       }
 
       if (valA < valB) return dir === 'asc' ? -1 : 1;
@@ -2000,10 +2055,9 @@
       return 0;
     });
 
-    const isTimeframeActive = !!(state.tickDateStart || state.tickDateEnd);
     const fragment = document.createDocumentFragment();
     for (const enriched of itemsWithMetrics) {
-      const { item, name: cleanName, added: addedCount, endTotal, startTotal } = enriched;
+      const { item, name: cleanName, added: addedCount, endTotal, startTotal, timeframeTicks } = enriched;
       const tr = document.createElement('tr');
       if (!isStateLevel && state.selectedMapCounty === item.county) {
         tr.classList.add('is-selected');
@@ -2066,6 +2120,20 @@
         tdAdded.style.color = 'var(--color-text-tertiary)';
       }
       tr.appendChild(tdAdded);
+
+      // Timeframe Seen column
+      const tdTimeframeTicks = document.createElement('td');
+      tdTimeframeTicks.className = 'date-cell';
+      tdTimeframeTicks.style.textAlign = 'right';
+      tdTimeframeTicks.style.fontWeight = 'bold';
+      if (isTimeframeActive && timeframeTicks > 0) {
+        tdTimeframeTicks.textContent = timeframeTicks.toLocaleString();
+        tdTimeframeTicks.style.color = '#f59e0b'; // Amber accent for seen timeframe ticks
+      } else {
+        tdTimeframeTicks.textContent = '—';
+        tdTimeframeTicks.style.color = 'var(--color-text-tertiary)';
+      }
+      tr.appendChild(tdTimeframeTicks);
 
       tr.addEventListener('click', () => {
         if (isStateLevel) {
@@ -2354,7 +2422,7 @@
     return '';
   }
 
-  function renderVectorMap(features, keyField, subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, isPreProjected, endTotalCounts) {
+  function renderVectorMap(features, keyField, subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, isPreProjected, endTotalCounts, timeframeTicksCounts) {
     DOM.mapNodesLayer.innerHTML = '';
     DOM.mapEdgesLayer.innerHTML = '';
     DOM.mapLabelsLayer.innerHTML = '';
@@ -2488,8 +2556,61 @@
         isSelected = (state.selectedMapCounty === name);
       }
 
-      // Determine active value based on colorMode
-      const activeValue = colorMode === 'added' ? addedCount : totalCount;
+      // Compute endTotal upfront (cumulative count as of end date)
+      let endTotal = totalCount;
+      if (endTotalCounts) {
+        if (keyField === 'state') {
+          const code = FIPS_TO_STATE[String(feature.id).padStart(2, '0')] || '';
+          if (code) {
+            const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+            if (isStateLevel) {
+              const set = endTotalCounts.get(stateCode);
+              if (set) endTotal = set.size;
+            } else {
+              // Aggregate endTotal across all counties in this state
+              let stateEndTotal = 0;
+              for (const [key, set] of endTotalCounts) {
+                if (key.startsWith(`US-${code}::`) || key.startsWith(`${code}::`)) {
+                  stateEndTotal += set.size;
+                }
+              }
+              if (stateEndTotal > 0) endTotal = stateEndTotal;
+            }
+          }
+        } else {
+          const endTotalSet = endTotalCounts.get(lookupKey);
+          if (endTotalSet) endTotal = endTotalSet.size;
+        }
+      }
+
+      // Compute timeframe unique species ticks count upfront
+      let timeframeTicksCount = 0;
+      if (timeframeTicksCounts) {
+        if (keyField === 'state') {
+          const code = FIPS_TO_STATE[String(feature.id).padStart(2, '0')] || '';
+          if (code) {
+            const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
+            if (isStateLevel) {
+              const set = timeframeTicksCounts.get(stateCode);
+              if (set) timeframeTicksCount = set.size;
+            } else {
+              for (const [key, set] of timeframeTicksCounts) {
+                if (key.startsWith(`US-${code}::`) || key.startsWith(`${code}::`)) {
+                  timeframeTicksCount += set.size;
+                }
+              }
+            }
+          }
+        } else {
+          const tfSet = timeframeTicksCounts.get(lookupKey);
+          if (tfSet) timeframeTicksCount = tfSet.size;
+        }
+      }
+
+      // Determine active value based on colorMode (Cumulative uses endTotal!)
+      let activeValue = endTotal;
+      if (colorMode === 'added') activeValue = addedCount;
+      else if (colorMode === 'timeframe-ticks') activeValue = timeframeTicksCount;
 
       const isLevel3 = (keyField === 'county' && state.selectedMapCounty);
 
@@ -2532,7 +2653,10 @@
           county: displayName, 
           state: displayState, 
           speciesCount: totalCount,
+          endTotal: endTotal,
           addedCount: addedCount,
+          timeframeTicksCount: timeframeTicksCount,
+          colorMode: colorMode,
           isTimeframeActive: isTimeframeActive
         }, e);
       });
@@ -2563,26 +2687,8 @@
 
       fragmentPaths.appendChild(path);
 
-      // Label text: endTotal and addition ticks
+      // Label text based on colorMode (total = cumulative, added, timeframe-ticks)
       let labelText = '';
-      let endTotal = totalCount;
-      if (endTotalCounts) {
-        if (keyField === 'state') {
-          // Aggregate endTotal across all counties in this state
-          let stateEndTotal = 0;
-          const fipsStr = String(feature.id).padStart(2, '0');
-          const code = FIPS_TO_STATE[fipsStr] || '';
-          for (const [key, set] of endTotalCounts) {
-            if (key.startsWith(`US-${code}::`) || key.startsWith(`${code}::`)) {
-              stateEndTotal += set.size;
-            }
-          }
-          if (stateEndTotal > 0) endTotal = stateEndTotal;
-        } else {
-          const endTotalSet = endTotalCounts.get(lookupKey);
-          if (endTotalSet) endTotal = endTotalSet.size;
-        }
-      }
       if (activeValue > 0) {
         if (colorMode === 'total') {
           if (isTimeframeActive) {
@@ -2593,8 +2699,10 @@
           } else {
             labelText = totalCount.toString();
           }
-        } else {
+        } else if (colorMode === 'added') {
           labelText = addedCount > 0 ? `+${addedCount}` : '';
+        } else if (colorMode === 'timeframe-ticks') {
+          labelText = timeframeTicksCount > 0 ? timeframeTicksCount.toString() : '';
         }
       }
 
@@ -2744,22 +2852,22 @@
     DOM.mapLabelsLayer.appendChild(fragmentLabels);
   }
 
-  function renderCentroidFallback(subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, endTotalCounts) {
+  function renderCentroidFallback(subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, endTotalCounts, timeframeTicksCounts) {
     DOM.mapNodesLayer.innerHTML = '';
     DOM.mapEdgesLayer.innerHTML = '';
     DOM.mapLabelsLayer.innerHTML = '';
 
-    const nodes = Array.from(subregionsMap.values());
+    const nodes = Array.from(subregionsMap.values()).filter(n => n.lat !== 0 && n.lng !== 0);
     if (nodes.length === 0) return;
 
     let minLat = Infinity, maxLat = -Infinity;
     let minLng = Infinity, maxLng = -Infinity;
 
-    for (const n of nodes) {
-      if (n.lat < minLat) minLat = n.lat;
-      if (n.lat > maxLat) maxLat = n.lat;
-      if (n.lng < minLng) minLng = n.lng;
-      if (n.lng > maxLng) maxLng = n.lng;
+    for (const node of nodes) {
+      if (node.lat < minLat) minLat = node.lat;
+      if (node.lat > maxLat) maxLat = node.lat;
+      if (node.lng < minLng) minLng = node.lng;
+      if (node.lng > maxLng) maxLng = node.lng;
     }
 
     const latDiff = maxLat - minLat;
@@ -2767,7 +2875,7 @@
 
     const width = 500;
     const height = 400;
-    const padding = 25;
+    const padding = 20;
 
     function project(lat, lng) {
       let x, y;
@@ -2835,7 +2943,17 @@
 
       const lookupKey = `${node.state}::${node.county}`;
       const addedCount = addedCounts.get(lookupKey) || 0;
-      const activeValue = colorMode === 'added' ? addedCount : node.speciesCount;
+      
+      const endTotalSet = endTotalCounts ? endTotalCounts.get(lookupKey) : null;
+      const endTotal = endTotalSet ? endTotalSet.size : node.speciesCount;
+      
+      const tfSet = timeframeTicksCounts ? timeframeTicksCounts.get(lookupKey) : null;
+      const timeframeTicksCount = tfSet ? tfSet.size : 0;
+
+      // Determine active value based on colorMode (Cumulative uses endTotal!)
+      let activeValue = endTotal;
+      if (colorMode === 'added') activeValue = addedCount;
+      else if (colorMode === 'timeframe-ticks') activeValue = timeframeTicksCount;
 
       const isTopCounty = activeMax > 0 && activeValue === activeMax;
       if (isTopCounty) {
@@ -2877,7 +2995,10 @@
           county: `${node.county} County`, 
           state: node.state, 
           speciesCount: node.speciesCount,
+          endTotal: endTotal,
           addedCount: addedCount,
+          timeframeTicksCount: timeframeTicksCount,
+          colorMode: colorMode,
           isTimeframeActive: isTimeframeActive
         }, e);
       });
@@ -2890,9 +3011,8 @@
 
       fragmentNodes.appendChild(g);
 
+      // Label text based on colorMode (total = cumulative, added, timeframe-ticks)
       let labelText = '';
-      const endTotalSet = endTotalCounts ? endTotalCounts.get(lookupKey) : null;
-      const endTotal = endTotalSet ? endTotalSet.size : node.speciesCount;
       if (activeValue > 0) {
         if (colorMode === 'total') {
           if (isTimeframeActive) {
@@ -2903,8 +3023,10 @@
           } else {
             labelText = node.speciesCount.toString();
           }
-        } else {
+        } else if (colorMode === 'added') {
           labelText = addedCount > 0 ? `+${addedCount}` : '';
+        } else if (colorMode === 'timeframe-ticks') {
+          labelText = timeframeTicksCount > 0 ? timeframeTicksCount.toString() : '';
         }
       }
 
@@ -3005,37 +3127,86 @@
       }
     }
 
-    // Calculate max values for both Total and Added
-    let maxTotal = 0;
+    // Compute timeframe ticks (all unique species seen during timeframe) for all subregions
+    const timeframeTicksCounts = new Map();
+    if (isTimeframeActive) {
+      for (const obs of state.observations) {
+        if (!obs.state || !obs.commonName) continue;
+        if (!isStateLevel && !obs.county) continue;
+
+        if (state.showTrueSpeciesOnly && !isTrueSpecies(obs.commonName, obs.scientificName)) continue;
+        if (isNonCountable(obs.commonName, obs.state, isStateLevel ? '' : obs.county)) continue;
+
+        let name = obs.commonName;
+        if (state.aggregateSubspecies) {
+          name = stripSubspecies(name);
+        }
+
+        if (state.tickDateStart && obs.date < state.tickDateStart) continue;
+        if (state.tickDateEnd && obs.date > state.tickDateEnd) continue;
+
+        const cKey = isStateLevel ? obs.state : `${obs.state}::${obs.county}`;
+        if (!timeframeTicksCounts.has(cKey)) {
+          timeframeTicksCounts.set(cKey, new Set());
+        }
+        timeframeTicksCounts.get(cKey).add(name);
+      }
+    }
+
+    // Calculate max values for active mode (Cumulative, Added, or Timeframe Ticks)
+    let maxCumulative = 0;
     let maxAdded = 0;
+    let maxTfTicks = 0;
     
     const cleanedState = cleanStateCode(state.filterState);
     
     if (!isStateLevel && !cleanedState) {
-      // Zoomed out US Map in County Ticks mode: aggregate counts by state to find the maximum state-level aggregate
-      const stateTotals = new Map();
+      // Zoomed out US Map in County Ticks mode: aggregate counts by state
+      const stateCumulatives = new Map();
       const stateAddeds = new Map();
+      const stateTfTicks = new Map();
+      
       for (const [key, sub] of subregionsMap) {
         const stateKey = key.split('::')[0];
-        stateTotals.set(stateKey, (stateTotals.get(stateKey) || 0) + sub.speciesCount);
-        stateAddeds.set(stateKey, (stateAddeds.get(stateKey) || 0) + (addedCounts.get(key) || 0));
+        
+        const endTotalSet = endTotalCounts.get(key);
+        const endTotal = endTotalSet ? endTotalSet.size : sub.speciesCount;
+        const added = addedCounts.get(key) || 0;
+        const tfTicksSet = timeframeTicksCounts.get(key);
+        const tfTicks = tfTicksSet ? tfTicksSet.size : 0;
+        
+        stateCumulatives.set(stateKey, (stateCumulatives.get(stateKey) || 0) + endTotal);
+        stateAddeds.set(stateKey, (stateAddeds.get(stateKey) || 0) + added);
+        stateTfTicks.set(stateKey, (stateTfTicks.get(stateKey) || 0) + tfTicks);
       }
-      for (const [_, val] of stateTotals) {
-        if (val > maxTotal) maxTotal = val;
+      
+      for (const [_, val] of stateCumulatives) {
+        if (val > maxCumulative) maxCumulative = val;
       }
       for (const [_, val] of stateAddeds) {
         if (val > maxAdded) maxAdded = val;
       }
+      for (const [_, val] of stateTfTicks) {
+        if (val > maxTfTicks) maxTfTicks = val;
+      }
     } else {
       // Standard behavior (state level or zoomed-in county level)
       for (const [key, sub] of subregionsMap) {
-        if (sub.speciesCount > maxTotal) maxTotal = sub.speciesCount;
+        const endTotalSet = endTotalCounts.get(key);
+        const endTotal = endTotalSet ? endTotalSet.size : sub.speciesCount;
         const added = addedCounts.get(key) || 0;
+        const tfTicksSet = timeframeTicksCounts.get(key);
+        const tfTicks = tfTicksSet ? tfTicksSet.size : 0;
+
+        if (endTotal > maxCumulative) maxCumulative = endTotal;
         if (added > maxAdded) maxAdded = added;
+        if (tfTicks > maxTfTicks) maxTfTicks = tfTicks;
       }
     }
 
-    const activeMax = colorMode === 'added' ? maxAdded : maxTotal;
+    let activeMax = maxCumulative;
+    if (colorMode === 'added') activeMax = maxAdded;
+    else if (colorMode === 'timeframe-ticks') activeMax = maxTfTicks;
 
     if (typeof topojson !== 'undefined' && window.US_ATLAS) {
       try {
@@ -3043,7 +3214,7 @@
         
         if (!cleanedState) {
           const stateFeatures = topojson.feature(window.US_ATLAS, window.US_ATLAS.objects.states).features;
-          renderVectorMap(stateFeatures, 'state', subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, true, endTotalCounts);
+          renderVectorMap(stateFeatures, 'state', subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, true, endTotalCounts, timeframeTicksCounts);
           return;
         } else {
           const fipsPrefix = STATE_TO_FIPS[cleanedState];
@@ -3052,7 +3223,7 @@
               const stateFeatures = topojson.feature(window.US_ATLAS, window.US_ATLAS.objects.states).features;
               const stateFeature = stateFeatures.find(f => f.id === fipsPrefix);
               if (stateFeature) {
-                renderVectorMap([stateFeature], 'state', subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, true, endTotalCounts);
+                renderVectorMap([stateFeature], 'state', subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, true, endTotalCounts, timeframeTicksCounts);
                 return;
               }
             } else {
@@ -3060,7 +3231,7 @@
                 f => f.id.startsWith(fipsPrefix)
               );
               if (countyFeatures.length > 0) {
-                renderVectorMap(countyFeatures, 'county', subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, true, endTotalCounts);
+                renderVectorMap(countyFeatures, 'county', subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, true, endTotalCounts, timeframeTicksCounts);
                 return;
               }
             }
@@ -3071,7 +3242,7 @@
       }
     }
     
-    renderCentroidFallback(subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, endTotalCounts);
+    renderCentroidFallback(subregionsMap, addedCounts, activeMax, colorMode, isTimeframeActive, endTotalCounts, timeframeTicksCounts);
   }
 
   function renderTickChart(milestones) {
@@ -3387,15 +3558,42 @@
   function showMapTooltip(node, event) {
     DOM.mapTooltip.style.display = 'block';
     
-    let valueHTML = `<div class="map-tooltip__value">${node.speciesCount} Lifetime Ticks</div>`;
-    if (node.isTimeframeActive) {
-      valueHTML += `<div class="map-tooltip__value" style="color: #14b8a6; font-size: var(--font-size-xs); margin-top: 2px;">+${node.addedCount || 0} Timeframe Additions</div>`;
+    let valueHTML = '';
+    const colorMode = node.colorMode || 'total';
+
+    if (colorMode === 'timeframe-ticks') {
+      valueHTML = `
+        <div class="map-tooltip__value" style="color: #f59e0b; font-weight: bold; font-size: 14px;">${node.timeframeTicksCount || 0} Timeframe Ticks</div>
+        <div style="font-size: 11px; color: #a78bfa; margin-top: 2px;">Cumulative: ${node.endTotal || 0} Ticks</div>
+        <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 1px;">Lifetime Ticks: ${node.speciesCount || 0}</div>
+      `;
+    } else if (colorMode === 'added') {
+      valueHTML = `
+        <div class="map-tooltip__value" style="color: #14b8a6; font-weight: bold; font-size: 14px;">+${node.addedCount || 0} Timeframe Additions</div>
+        <div style="font-size: 11px; color: #a78bfa; margin-top: 2px;">Cumulative: ${node.endTotal || 0} Ticks</div>
+        <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 1px;">Lifetime Ticks: ${node.speciesCount || 0}</div>
+      `;
+    } else {
+      // Cumulative Ticks mode
+      const isPastCutoff = node.isTimeframeActive && node.endTotal < node.speciesCount;
+      const countToPrint = isPastCutoff ? node.endTotal : node.speciesCount;
+      const labelToPrint = isPastCutoff ? 'Cumulative Ticks' : 'Total Lifetime Ticks';
+      
+      valueHTML = `
+        <div class="map-tooltip__value" style="color: #a78bfa; font-weight: bold; font-size: 14px;">${countToPrint || 0} ${labelToPrint}</div>
+      `;
+      if (node.isTimeframeActive && node.addedCount > 0) {
+        valueHTML += `<div style="color: #14b8a6; font-size: 11px; margin-top: 2px;">+${node.addedCount} Timeframe Additions</div>`;
+      }
+      if (isPastCutoff) {
+        valueHTML += `<div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 1px;">Lifetime Ticks: ${node.speciesCount || 0}</div>`;
+      }
     }
     
     DOM.mapTooltip.innerHTML = `
-      <div class="map-tooltip__title">${node.county}, ${node.state}</div>
+      <div class="map-tooltip__title" style="font-size: 12px; font-weight: bold; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 4px;">${node.county}, ${node.state}</div>
       ${valueHTML}
-      <div style="font-size: 10px; color: var(--color-text-tertiary); margin-top: 4px;">Click to filter/select</div>
+      <div style="font-size: 9px; color: var(--color-text-tertiary); margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px;">Click to filter/select</div>
     `;
     positionMapTooltip(event);
   }
@@ -3923,18 +4121,62 @@
       }).length;
     }
 
+    const colorMode = DOM.mapColorMode ? DOM.mapColorMode.value : 'total';
+    const maxObsDate = state.tickMilestones.length > 0 ? state.tickMilestones[state.tickMilestones.length - 1].date : null;
+
+    let modeTitle = 'TOTAL LIFETIME TICKS';
+    if (colorMode === 'added') {
+      modeTitle = 'TIMEFRAME ADDITIONS';
+    } else if (colorMode === 'timeframe-ticks') {
+      modeTitle = 'TIMEFRAME TICKS (SPECIES SEEN)';
+    } else {
+      if (isTimeframeActive && state.tickDateEnd && (maxObsDate && state.tickDateEnd < maxObsDate)) {
+        const parts = state.tickDateEnd.split('-');
+        const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+        modeTitle = `CUMULATIVE TICKS (AS OF ${formatDateLabel(dateObj).toUpperCase()})`;
+      }
+    }
+
     const dataAsOf = DOM.statDateAsOf ? DOM.statDateAsOf.textContent : '—';
     const maxVal = DOM.mapLegendMax ? DOM.mapLegendMax.textContent : 'Max';
 
     let speciesCountText = '';
-    if (!isStateLevel && state.selectedMapCounty) {
-      speciesCountText = `${geoMilestones.length.toLocaleString()} Species Ticked`;
-    } else {
-      speciesCountText = `${geoMilestones.length.toLocaleString()} Total Ticks`;
-    }
+    if (colorMode === 'timeframe-ticks') {
+      const uniqueSpeciesInTimeframe = new Set();
+      for (const obs of state.observations) {
+        if (!obs.state || !obs.commonName) continue;
+        if (!isStateLevel && !obs.county) continue;
+        if (state.filterState) {
+          const cleanState = cleanStateCode(state.filterState);
+          const stateMatch = obs.state === state.filterState || obs.state.endsWith(cleanState);
+          if (!stateMatch) continue;
+        }
+        if (!isStateLevel && state.selectedMapCounty && obs.county !== state.selectedMapCounty) {
+          continue;
+        }
+        if (state.showTrueSpeciesOnly && !isTrueSpecies(obs.commonName, obs.scientificName)) continue;
+        if (isNonCountable(obs.commonName, obs.state, isStateLevel ? '' : obs.county)) continue;
 
-    const colorMode = DOM.mapColorMode ? DOM.mapColorMode.value : 'total';
-    const modeTitle = colorMode === 'added' ? 'TIMEFRAME ADDITIONS' : 'TOTAL LIFETIME TICKS';
+        if (state.tickDateStart && obs.date < state.tickDateStart) continue;
+        if (state.tickDateEnd && obs.date > state.tickDateEnd) continue;
+
+        let name = obs.commonName;
+        if (state.aggregateSubspecies) {
+          name = stripSubspecies(name);
+        }
+        uniqueSpeciesInTimeframe.add(name);
+      }
+      speciesCountText = `${uniqueSpeciesInTimeframe.size.toLocaleString()} Species Seen`;
+    } else if (colorMode === 'added') {
+      speciesCountText = `${addedCount.toLocaleString()} Added Ticks`;
+    } else {
+      const count = (isTimeframeActive && state.tickDateEnd && (maxObsDate && state.tickDateEnd < maxObsDate)) ? afterCount : geoMilestones.length;
+      if (!isStateLevel && state.selectedMapCounty) {
+        speciesCountText = `${count.toLocaleString()} Species Ticked`;
+      } else {
+        speciesCountText = `${count.toLocaleString()} Total Ticks`;
+      }
+    }
 
     let svgData = new XMLSerializer().serializeToString(svgEl);
     // Resolve CSS variables inside serialized SVG for standalone image rendering
@@ -4890,7 +5132,7 @@
         const isStateLevel = DOM.tickLevel && DOM.tickLevel.value === 'state';
         let headers = isStateLevel ? ['State', 'Country', 'Total Ticks'] : ['County', 'State', 'Total Ticks'];
         if (isTimeframeActive) {
-          headers.push('Timeframe Start', 'Timeframe End', 'Added');
+          headers.push('Timeframe Start', 'Timeframe End', 'Added', 'Timeframe Ticks');
         }
 
         const csvRows = [headers.join(',')];
