@@ -2429,10 +2429,10 @@ body {
 
 @media (max-width: 768px) {
   .data-grid {
-    min-width: 500px !important; /* Shrink even further */
+    min-width: 700px !important; /* Keep table wide enough to scroll earliest/latest and years comfortably */
   }
   #grid-header-banner {
-    min-width: 500px !important;
+    min-width: 700px !important;
   }
   /* Make the species column narrower on very small viewports */
   .data-grid th[data-key="commonName"],
@@ -2443,13 +2443,6 @@ body {
   }
   /* Hide target selector icons on very small screens to fit text */
   .species-name .target-toggle {
-    display: none !important;
-  }
-  /* Hide earliest/latest date columns on extra small viewports to save another 180px */
-  .data-grid th[data-key="earliest"],
-  .data-grid th[data-key="latest"],
-  .data-grid td.col-earliest,
-  .data-grid td.col-latest {
     display: none !important;
   }
 }
