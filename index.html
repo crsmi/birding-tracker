@@ -16,6 +16,7 @@
 
   <!-- Styles -->
   <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="calendar.css?v=1" />
 </head>
 <body>
   <div class="app-shell" id="app-shell">
@@ -31,6 +32,7 @@
       <nav class="app-header__nav">
         <button id="tab-yoy" class="header-tab is-active" title="Year-over-Year Species Grid">📊 YoY Tracker</button>
         <button id="tab-tick" class="header-tab" title="Subregion Tick Explorer & Analytics">🗺️ Tick Explorer</button>
+        <button id="tab-calendars" class="header-tab" title="Day-of-Year Calendar Matrix">📅 Calendars</button>
         <button id="tab-settings" class="header-tab" title="Manage Exotics & Exclusions Settings">⚙️ Settings</button>
       </nav>
       <div class="app-header__actions">
@@ -68,6 +70,7 @@
       <!-- Region Filter -->
       <div class="sidebar-section">
         <span class="sidebar-section__title">🌍 Region Filter</span>
+        <select id="filter-country" class="control-select" title="Filter by Country"><option value="">All Countries</option></select>
         <select id="filter-state" class="control-select" title="Filter by State/Province">
           <option value="">All States</option>
         </select>
@@ -280,17 +283,22 @@
                 End Date
                 <input type="date" id="tick-date-end" class="control-date control-date--sm" />
               </label>
-              <div class="analyzer-date-label">
-                Quick Picks
-                <div class="quick-pick-row">
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="this-year">This Year</button>
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="this-month">This Month</button>
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-year">Last Year</button>
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-7">Last 7 Days</button>
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-30">Last 30 Days</button>
-                  <button class="btn btn--ghost btn--xs quick-pick-btn" data-preset="last-90">Last 90 Days</button>
-                </div>
-              </div>
+              <label class="analyzer-date-label">
+                Quick Year
+                <select id="quick-pick-year-select" class="control-select control-select--sm" style="height: 32px; min-width: 90px; font-size: var(--font-size-xs); padding: 4px 8px;">
+                  <option value="">Year...</option>
+                </select>
+              </label>
+              <label class="analyzer-date-label">
+                Quick Range
+                <select id="quick-pick-range-select" class="control-select control-select--sm" style="height: 32px; min-width: 125px; font-size: var(--font-size-xs); padding: 4px 8px;">
+                  <option value="">Range...</option>
+                  <option value="this-month">This Month</option>
+                  <option value="last-7">Last 7 Days</option>
+                  <option value="last-30">Last 30 Days</option>
+                  <option value="last-90">Last 90 Days</option>
+                </select>
+              </label>
               <label class="analyzer-date-label">
                 Geographic Level
                 <select id="tick-level" class="control-select control-select--sm" style="height: 32px; min-width: 130px; font-size: var(--font-size-xs); padding: 4px 8px;">
@@ -300,7 +308,7 @@
               </label>
               <label class="analyzer-date-label">
                 Map Mode
-                <select id="map-color-mode" class="control-select control-select--sm" style="height: 32px; min-width: 190px; font-size: var(--font-size-xs); padding: 4px 8px;">
+                <select id="map-color-mode" class="control-select control-select--sm" style="height: 32px; min-width: 190px; max-width: 200px; font-size: var(--font-size-xs); padding: 4px 8px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
                   <option value="total">📊 Cumulative Ticks</option>
                   <option value="added">⏱️ Timeframe Additions</option>
                   <option value="timeframe-ticks">📅 Timeframe Ticks</option>
@@ -402,6 +410,83 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Calendars View (hidden by default) -->
+      <div class="calendars-wrapper" id="calendars-wrapper" style="display: none;">
+        <div class="cal-toolbar cal-toolbar--top">
+          <div class="cal-subtabs" id="cal-subtabs" role="tablist">
+            <button class="cal-subtab is-active" data-view="species" role="tab" title="Distinct countable species per calendar day, pooled across years">🐦 Total Species</button>
+            <button class="cal-subtab" data-view="checklists" role="tab" title="Distinct checklists per calendar day, pooled across years">📋 Total Checklists</button>
+            <button class="cal-subtab" data-view="single" role="tab" title="Checklists reporting one species per calendar day">🔎 Single Species</button>
+            <button class="cal-subtab" data-view="bigday" role="tab" title="Best single-date species total for each calendar day">🏆 Big Day</button>
+          </div>
+          <button type="button" id="btn-cal-toggle-controls" class="cal-mobile-controls-btn" aria-expanded="false" aria-controls="cal-controls-bar">
+            <span>📅 Dates &amp; Export</span>
+            <span class="cal-mobile-controls-btn__chev">▾</span>
+          </button>
+        </div>
+
+        <!-- Single Species Picker Bar (always visible when Single Species tab is active) -->
+        <div class="cal-toolbar cal-species-bar" id="cal-species-group" style="display: none;">
+          <div class="cal-toolbar__group cal-species-group-inner">
+            <div class="cal-species-label-row">
+              <span class="cal-toolbar__label">Explore Species</span>
+              <div class="cal-species-sort" id="cal-species-sort" role="group" aria-label="Species sort order">
+                <button type="button" class="cal-sort-btn is-active" data-sort="alpha" title="Sort species alphabetically (A–Z)">A–Z</button>
+                <button type="button" class="cal-sort-btn" data-sort="tax" title="Sort species in eBird taxonomic order">Taxonomic</button>
+              </div>
+            </div>
+            <div class="cal-species-picker" id="cal-species-picker">
+              <button type="button" id="cal-species-btn" class="cal-species-btn" aria-haspopup="listbox" aria-controls="cal-species-options" aria-expanded="false">
+                <span id="cal-species-btn-label" class="cal-species-btn__text">Select a species...</span>
+                <span class="cal-species-btn__chevron" aria-hidden="true">▾</span>
+              </button>
+              <button type="button" id="btn-cal-species-prev" class="btn btn--secondary btn--sm cal-species-step" title="Previous species" aria-label="Previous species">‹</button>
+              <button type="button" id="btn-cal-species-next" class="btn btn--secondary btn--sm cal-species-step" title="Next species" aria-label="Next species">›</button>
+              <div id="cal-species-popover" class="cal-species-popover" hidden>
+                <div class="cal-species-search-wrap">
+                  <input type="text" id="cal-species-search" class="cal-species-search" placeholder="Type to filter species..." aria-label="Filter species" autocomplete="off" />
+                  <button type="button" id="btn-cal-species-search-clear" class="cal-species-search-clear" title="Clear search" aria-label="Clear search" hidden>×</button>
+                </div>
+                <div id="cal-species-options" class="cal-species-options" role="listbox" aria-label="Species list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Date Range & Export Bar (collapsible on mobile) -->
+        <div class="cal-toolbar cal-toolbar--controls" id="cal-controls-bar">
+          <label class="cal-toolbar__group">
+            <span class="cal-toolbar__label">Start Date</span>
+            <input type="date" id="cal-date-start" class="control-date control-date--sm" />
+          </label>
+          <label class="cal-toolbar__group">
+            <span class="cal-toolbar__label">End Date</span>
+            <input type="date" id="cal-date-end" class="control-date control-date--sm" />
+          </label>
+          <div class="cal-toolbar__group">
+            <span class="cal-toolbar__label">&nbsp;</span>
+            <button id="btn-cal-reset-filters" class="btn btn--secondary btn--sm" title="Reset date range">↺ Reset</button>
+          </div>
+          <div class="cal-toolbar__group cal-toolbar__group--end">
+            <span class="cal-toolbar__label">Export</span>
+            <div style="display: flex; gap: var(--space-2);">
+              <button id="btn-cal-export-csv" class="btn btn--secondary btn--sm" title="Download the 12 x 31 matrix as CSV">⬇ CSV</button>
+              <button id="btn-cal-export-png" class="btn btn--secondary btn--sm" title="Download the calendar as a PNG image">🖼 PNG</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="cal-meta-row">
+          <div class="cal-summary" id="cal-summary"></div>
+          <div class="cal-layout-modes" id="cal-layout-modes" role="group" aria-label="Matrix layout mode">
+            <button type="button" class="cal-mode-btn is-active" data-mode="scroll" title="Full-size cells with horizontal scroll">🔢 Scroll</button>
+            <button type="button" class="cal-mode-btn" data-mode="wrap" title="Wrap each month into 2 compact rows (no horizontal scroll)">↩ Wrap</button>
+            <button type="button" class="cal-mode-btn" data-mode="fit" title="Fit all 31 columns onto screen as a heatmap">⊞ Fit</button>
+          </div>
+        </div>
+        <div class="cal-matrix" id="cal-matrix"></div>
       </div>
 
       <!-- Settings View (hidden by default) -->
@@ -644,6 +729,8 @@
   <!-- Application Scripts -->
   <script src="db.js"></script>
   <script src="us_atlas.js"></script>
-  <script src="app.js?v=5"></script>
+  <script src="calendar-core.js?v=1"></script>
+  <script src="calendar-view.js?v=1"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

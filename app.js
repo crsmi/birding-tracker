@@ -70,6 +70,7 @@
     regions: [],             // [{state, county}]
     userExclusions: [],      // Array of custom exotics exclusions: [{ id, commonName, state, county }]
     disabledSystemExclusions: [], // Array of disabled default exotics IDs
+    filterCountry: '',
     filterState: '',
     filterCounty: '',
     targetYear: new Date().getFullYear(),
@@ -101,6 +102,18 @@
     visualCentroids: new Map(),
     tickSortColumn: 'speciesCount',
     tickSortDirection: 'desc',
+
+    // Calendars State
+    calendar: {
+      view: 'species',             // 'species' | 'checklists' | 'single' | 'bigday'
+      species: '',
+      speciesSort: 'alpha',        // 'alpha' | 'tax'
+      layoutModeDesktop: 'scroll', // 'scroll' | 'wrap' | 'fit'
+      layoutModeMobile: 'wrap',    // 'scroll' | 'wrap' | 'fit'
+      dateStart: '',
+      dateEnd: '',
+      lastResult: null,
+    },
   };
 
   /* -----------------------------------------------------------------------
@@ -124,6 +137,7 @@
     DOM.btnExportState = $('btn-export-state');
     DOM.inputImportState = $('input-import-state');
     DOM.btnClearData = $('btn-clear-data');
+    DOM.filterCountry = $('filter-country');
     DOM.filterState = $('filter-state');
     DOM.filterCounty = $('filter-county');
     DOM.filterYear = $('filter-year');
@@ -167,6 +181,8 @@
     DOM.tickDateStart = $('tick-date-start');
     DOM.tickDateEnd = $('tick-date-end');
     DOM.btnClearDateFilter = $('btn-clear-date-filter');
+    DOM.quickPickYearSelect = $('quick-pick-year-select');
+    DOM.quickPickRangeSelect = $('quick-pick-range-select');
     DOM.tickSearchSubregions = $('tick-search-subregions');
     DOM.subregionListBody = $('subregion-list-body');
     DOM.timelineAdditionsList = $('timeline-additions-list');
@@ -198,6 +214,32 @@
     // Settings DOM
     DOM.tabSettings = $('tab-settings');
     DOM.settingsWrapper = $('settings-wrapper');
+
+    // Calendars
+    DOM.tabCalendars = $('tab-calendars');
+    DOM.calendarsWrapper = $('calendars-wrapper');
+    DOM.calSubtabs = $('cal-subtabs');
+    DOM.btnCalToggleControls = $('btn-cal-toggle-controls');
+    DOM.calControlsBar = $('cal-controls-bar');
+    DOM.calSpeciesGroup = $('cal-species-group');
+    DOM.calSpeciesSort = $('cal-species-sort');
+    DOM.calSpeciesPicker = $('cal-species-picker');
+    DOM.calSpeciesBtn = $('cal-species-btn');
+    DOM.calSpeciesBtnLabel = $('cal-species-btn-label');
+    DOM.btnCalSpeciesPrev = $('btn-cal-species-prev');
+    DOM.btnCalSpeciesNext = $('btn-cal-species-next');
+    DOM.calSpeciesPopover = $('cal-species-popover');
+    DOM.calSpeciesSearch = $('cal-species-search');
+    DOM.btnCalSpeciesSearchClear = $('btn-cal-species-search-clear');
+    DOM.calSpeciesOptions = $('cal-species-options');
+    DOM.calDateStart = $('cal-date-start');
+    DOM.calDateEnd = $('cal-date-end');
+    DOM.btnCalResetFilters = $('btn-cal-reset-filters');
+    DOM.btnCalExportCsv = $('btn-cal-export-csv');
+    DOM.btnCalExportPng = $('btn-cal-export-png');
+    DOM.calSummary = $('cal-summary');
+    DOM.calLayoutModes = $('cal-layout-modes');
+    DOM.calMatrix = $('cal-matrix');
     DOM.exclusionSpecies = $('exclusion-species');
     DOM.datalistSpecies = $('datalist-species');
     DOM.exclusionState = $('exclusion-state');
@@ -822,6 +864,16 @@
       const defaultRegion = await DB.getSetting('defaultRegion');
       state.defaultRegion = defaultRegion || null;
 
+      const savedCountry = await DB.getSetting('filterCountry');
+      if (savedCountry) state.filterCountry = savedCountry;
+      const savedCalendarPrefs = await DB.getSetting('calendarPrefs');
+      if (savedCalendarPrefs && typeof savedCalendarPrefs === 'object') {
+        if (savedCalendarPrefs.view) state.calendar.view = savedCalendarPrefs.view;
+        if (savedCalendarPrefs.species) state.calendar.species = savedCalendarPrefs.species;
+        if (savedCalendarPrefs.speciesSort) state.calendar.speciesSort = savedCalendarPrefs.speciesSort;
+        if (savedCalendarPrefs.layoutModeDesktop) state.calendar.layoutModeDesktop = savedCalendarPrefs.layoutModeDesktop;
+        if (savedCalendarPrefs.layoutModeMobile) state.calendar.layoutModeMobile = savedCalendarPrefs.layoutModeMobile;
+      }
       const savedState = await DB.getSetting('filterState');
       const savedCounty = await DB.getSetting('filterCounty');
       
@@ -841,6 +893,7 @@
         DOM.filterCounty.value = state.defaultRegion.county;
       }
 
+      populateRegionFilters();
       const savedBackupIncludeData = await DB.getSetting('backupIncludeData');
       state.backupIncludeData = savedBackupIncludeData !== null ? savedBackupIncludeData : false;
       if (DOM.chkBackupIncludeData) DOM.chkBackupIncludeData.checked = state.backupIncludeData;
@@ -916,8 +969,38 @@
      10. Region Filter Population
      ----------------------------------------------------------------------- */
 
+  /** Country code portion of an eBird State/Province code ('US-WI' -> 'US'). */
+  function countryOf(stateCode) {
+    const s = (stateCode || '').trim();
+    const idx = s.indexOf('-');
+    return idx === -1 ? s : s.substring(0, idx);
+  }
+
+  function populateCountryFilter() {
+    if (!DOM.filterCountry) return;
+    const countries = [...new Set(state.regions.map(r => countryOf(r.state)))].filter(c => c).sort();
+    DOM.filterCountry.innerHTML = '<option value="">All Countries</option>';
+    for (const c of countries) {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      if (c === state.filterCountry) opt.selected = true;
+      DOM.filterCountry.appendChild(opt);
+    }
+    // Drop a stale country that no longer exists in the dataset
+    if (state.filterCountry && !countries.includes(state.filterCountry)) {
+      state.filterCountry = '';
+      DOM.filterCountry.value = '';
+    }
+  }
+
   function populateRegionFilters() {
-    const states = [...new Set(state.regions.map(r => r.state))].sort();
+    // Keep country consistent with an already-selected state (e.g. restored settings / map clicks)
+    if (state.filterState) state.filterCountry = countryOf(state.filterState);
+    populateCountryFilter();
+    const states = [...new Set(state.regions.map(r => r.state))]
+      .filter(s => !state.filterCountry || countryOf(s) === state.filterCountry)
+      .sort();
     DOM.filterState.innerHTML = '<option value="">All States</option>';
     for (const s of states) {
       const opt = document.createElement('option');
@@ -933,7 +1016,7 @@
   function populateCountyFilter() {
     const filtered = state.filterState
       ? state.regions.filter(r => r.state === state.filterState)
-      : state.regions;
+      : (state.filterCountry ? state.regions.filter(r => countryOf(r.state) === state.filterCountry) : state.regions);
     const counties = [...new Set(filtered.map(r => r.county))].filter(c => c).sort();
 
     DOM.filterCounty.innerHTML = '<option value="">All Counties</option>';
@@ -983,6 +1066,10 @@
         state.observations = await DB.getObservations(
           (filter.state || filter.county) ? filter : undefined
         );
+        // Country-only filter (no state chosen): keep sightings whose state code starts with the country
+        if (!state.filterState && state.filterCountry) {
+          state.observations = state.observations.filter(obs => countryOf(obs.state) === state.filterCountry);
+        }
       }
 
       computeSpeciesData();
@@ -992,6 +1079,8 @@
 
       if (state.activeTab === 'tick') {
         await renderTickExplorer();
+      } else if (state.activeTab === 'calendars') {
+        renderCalendars();
       } else if (state.activeTab === 'settings') {
         await renderSettings();
       }
@@ -1459,48 +1548,30 @@
      ----------------------------------------------------------------------- */
 
   function syncViewVisibility() {
+    const tabs = [DOM.tabYoY, DOM.tabTick, DOM.tabCalendars, DOM.tabSettings].filter(Boolean);
+    const wrappers = [DOM.gridWrapper, DOM.statsBar, DOM.tickExplorerWrapper, DOM.calendarsWrapper, DOM.settingsWrapper].filter(Boolean);
+
     if (!state.isDataLoaded) {
       DOM.emptyState.style.display = 'flex';
-      DOM.gridWrapper.style.display = 'none';
-      DOM.statsBar.style.display = 'none';
-      DOM.tickExplorerWrapper.style.display = 'none';
-      DOM.settingsWrapper.style.display = 'none';
-      DOM.tabYoY.style.display = 'none';
-      DOM.tabTick.style.display = 'none';
-      DOM.tabSettings.style.display = 'none';
+      for (const w of wrappers) w.style.display = 'none';
+      for (const t of tabs) t.style.display = 'none';
       return;
     }
 
     DOM.emptyState.style.display = 'none';
-    DOM.tabYoY.style.display = 'flex';
-    DOM.tabTick.style.display = 'flex';
-    DOM.tabSettings.style.display = 'flex';
+    for (const t of tabs) t.style.display = 'flex';
 
-    if (state.activeTab === 'yoy') {
-      DOM.gridWrapper.style.display = 'block';
-      DOM.statsBar.style.display = 'flex';
-      DOM.tickExplorerWrapper.style.display = 'none';
-      DOM.settingsWrapper.style.display = 'none';
-      DOM.tabYoY.classList.add('is-active');
-      DOM.tabTick.classList.remove('is-active');
-      DOM.tabSettings.classList.remove('is-active');
-    } else if (state.activeTab === 'tick') {
-      DOM.gridWrapper.style.display = 'none';
-      DOM.statsBar.style.display = 'none';
-      DOM.tickExplorerWrapper.style.display = 'flex';
-      DOM.settingsWrapper.style.display = 'none';
-      DOM.tabYoY.classList.remove('is-active');
-      DOM.tabTick.classList.add('is-active');
-      DOM.tabSettings.classList.remove('is-active');
-    } else if (state.activeTab === 'settings') {
-      DOM.gridWrapper.style.display = 'none';
-      DOM.statsBar.style.display = 'none';
-      DOM.tickExplorerWrapper.style.display = 'none';
-      DOM.settingsWrapper.style.display = 'flex';
-      DOM.tabYoY.classList.remove('is-active');
-      DOM.tabTick.classList.remove('is-active');
-      DOM.tabSettings.classList.add('is-active');
-    }
+    const tab = state.activeTab;
+    DOM.gridWrapper.style.display = tab === 'yoy' ? 'block' : 'none';
+    DOM.statsBar.style.display = tab === 'yoy' ? 'flex' : 'none';
+    DOM.tickExplorerWrapper.style.display = tab === 'tick' ? 'flex' : 'none';
+    if (DOM.calendarsWrapper) DOM.calendarsWrapper.style.display = tab === 'calendars' ? 'flex' : 'none';
+    DOM.settingsWrapper.style.display = tab === 'settings' ? 'flex' : 'none';
+
+    DOM.tabYoY.classList.toggle('is-active', tab === 'yoy');
+    DOM.tabTick.classList.toggle('is-active', tab === 'tick');
+    if (DOM.tabCalendars) DOM.tabCalendars.classList.toggle('is-active', tab === 'calendars');
+    DOM.tabSettings.classList.toggle('is-active', tab === 'settings');
   }
 
   async function switchTab(tab) {
@@ -1518,9 +1589,569 @@
 
     if (state.activeTab === 'tick') {
       await renderTickExplorer();
+    } else if (state.activeTab === 'calendars') {
+      renderCalendars();
     } else if (state.activeTab === 'settings') {
       await renderSettings();
     }
+  }
+
+  /* -----------------------------------------------------------------------
+     13.4. Calendars (Day-of-Year Matrix) — data in calendar-core.js,
+           rendering in calendar-view.js. This section only wires state,
+           filters and exports together.
+     ----------------------------------------------------------------------- */
+
+  const CALENDAR_TITLES = {
+    species: 'Total Species Calendar',
+    checklists: 'Total Checklists Calendar',
+    single: 'Single Species Calendar',
+    bigday: 'Big Day Calendar',
+  };
+
+  let calSpeciesListData = [];
+  let calSpeciesNames = new Set();
+  let calHighlightedIndex = -1;
+
+  function getCalendarRules() {
+    return { isTrueSpecies, stripSubspecies, isNonCountable };
+  }
+
+  /** Human-readable description of the active sidebar region. */
+  function describeActiveRegion() {
+    if (state.selectedCustomGroup) {
+      const g = (state.customRegionGroups || []).find(x => x.id === state.selectedCustomGroup);
+      if (g) return `${g.name} (${g.state})`;
+    }
+    if (state.filterCounty) return `${state.filterCounty}, ${state.filterState}`;
+    if (state.filterState) return state.filterState;
+    if (state.filterCountry) return state.filterCountry;
+    return 'All regions';
+  }
+
+  function describeCalendarFilters(span) {
+    const cal = state.calendar;
+    const parts = [describeActiveRegion()];
+    const start = cal.dateStart || (span ? span.min : '');
+    const end = cal.dateEnd || (span ? span.max : '');
+    if (start || end) parts.push(`${start || '…'} to ${end || '…'}`);
+    return parts.join(' · ');
+  }
+
+  const CAL_GRID_MIN_WIDTH = 940;
+
+  function isCalendarMobileViewport() {
+    return typeof window !== 'undefined' && window.innerWidth <= 768;
+  }
+
+  /**
+   * True when the calendar scroll area is narrower than the full 31-day table
+   * (i.e. the exact threshold where a horizontal scrollbar appears in Scroll mode).
+   */
+  function isCalendarTableConstrained() {
+    if (DOM.calMatrix) {
+      const scrollEl = DOM.calMatrix.querySelector('.cal-scroll');
+      if (scrollEl && scrollEl.clientWidth > 0) {
+        return scrollEl.clientWidth < CAL_GRID_MIN_WIDTH;
+      }
+      if (DOM.calMatrix.clientWidth > 0) {
+        return (DOM.calMatrix.clientWidth - 32) < CAL_GRID_MIN_WIDTH;
+      }
+    }
+    return typeof window !== 'undefined' && window.innerWidth < 1260;
+  }
+
+  function getEffectiveCalendarLayoutMode() {
+    if (!isCalendarTableConstrained()) {
+      return 'scroll';
+    }
+    const mode = isCalendarMobileViewport()
+      ? state.calendar.layoutModeMobile
+      : state.calendar.layoutModeDesktop;
+    if (mode === 'scroll' || mode === 'wrap' || mode === 'fit') return mode;
+    return isCalendarMobileViewport() ? 'wrap' : 'scroll';
+  }
+
+  function syncCalendarLayoutModeButtons(activeMode) {
+    if (!DOM.calLayoutModes) return;
+    const constrained = isCalendarTableConstrained();
+    DOM.calLayoutModes.hidden = !constrained;
+    for (const btn of DOM.calLayoutModes.querySelectorAll('.cal-mode-btn')) {
+      const isAct = btn.dataset.mode === activeMode;
+      btn.classList.toggle('is-active', isAct);
+      btn.setAttribute('aria-pressed', isAct ? 'true' : 'false');
+    }
+  }
+
+  function syncSpeciesSortButtons() {
+    if (!DOM.calSpeciesSort) return;
+    const activeSort = state.calendar.speciesSort || 'alpha';
+    for (const btn of DOM.calSpeciesSort.querySelectorAll('.cal-sort-btn')) {
+      const isAct = btn.dataset.sort === activeSort;
+      btn.classList.toggle('is-active', isAct);
+      btn.setAttribute('aria-pressed', isAct ? 'true' : 'false');
+    }
+  }
+
+  function renderSpeciesDropdownOptions(filterText) {
+    if (!DOM.calSpeciesOptions) return;
+    const q = (filterText || '').trim().toLowerCase();
+    const matches = q
+      ? calSpeciesListData.filter(s => s.name.toLowerCase().includes(q))
+      : calSpeciesListData;
+
+    DOM.calSpeciesOptions.innerHTML = '';
+    calHighlightedIndex = -1;
+
+    if (!matches.length) {
+      const empty = document.createElement('div');
+      empty.className = 'cal-species-empty';
+      empty.textContent = q ? `No species matching "${filterText.trim()}"` : 'No species available';
+      DOM.calSpeciesOptions.appendChild(empty);
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    let selectedEl = null;
+    matches.forEach((sp, idx) => {
+      const isSelected = sp.name === state.calendar.species;
+      const item = document.createElement('div');
+      item.className = 'cal-species-opt' + (isSelected ? ' is-selected' : '');
+      item.setAttribute('role', 'option');
+      item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      item.dataset.species = sp.name;
+      item.dataset.index = String(idx);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'cal-species-opt__name';
+      nameSpan.textContent = sp.name;
+
+      const rightSpan = document.createElement('span');
+      rightSpan.className = 'cal-species-opt__meta';
+
+      const countSpan = document.createElement('span');
+      countSpan.className = 'cal-species-opt__count';
+      countSpan.textContent = `${sp.checklistCount}`;
+
+      const checkSpan = document.createElement('span');
+      checkSpan.className = 'cal-species-opt__check';
+      checkSpan.setAttribute('aria-hidden', 'true');
+      checkSpan.textContent = '✓';
+
+      rightSpan.appendChild(countSpan);
+      rightSpan.appendChild(checkSpan);
+      item.appendChild(nameSpan);
+      item.appendChild(rightSpan);
+      frag.appendChild(item);
+
+      if (isSelected) {
+        selectedEl = item;
+        calHighlightedIndex = idx;
+      }
+    });
+
+    DOM.calSpeciesOptions.appendChild(frag);
+    if (selectedEl && typeof selectedEl.scrollIntoView === 'function') {
+      requestAnimationFrame(() => {
+        selectedEl.scrollIntoView({ block: 'nearest' });
+      });
+    }
+  }
+
+  function updateSpeciesNavButtons() {
+    if (!DOM.btnCalSpeciesPrev || !DOM.btnCalSpeciesNext) return;
+    const total = calSpeciesListData.length;
+    const idx = calSpeciesListData.findIndex(s => s.name === state.calendar.species);
+    DOM.btnCalSpeciesPrev.disabled = total <= 1 || idx <= 0;
+    DOM.btnCalSpeciesNext.disabled = total <= 1 || idx === -1 || idx >= total - 1;
+  }
+
+  function openSpeciesPopover() {
+    if (!DOM.calSpeciesPopover || !DOM.calSpeciesBtn) return;
+    DOM.calSpeciesPopover.hidden = false;
+    DOM.calSpeciesBtn.setAttribute('aria-expanded', 'true');
+    if (DOM.calSpeciesSearch) {
+      DOM.calSpeciesSearch.value = '';
+    }
+    if (DOM.btnCalSpeciesSearchClear) {
+      DOM.btnCalSpeciesSearchClear.hidden = true;
+    }
+    renderSpeciesDropdownOptions('');
+    if (DOM.calSpeciesSearch) {
+      requestAnimationFrame(() => DOM.calSpeciesSearch.focus());
+    }
+  }
+
+  function closeSpeciesPopover(restoreFocus) {
+    if (!DOM.calSpeciesPopover || !DOM.calSpeciesBtn) return;
+    if (DOM.calSpeciesPopover.hidden) return;
+    DOM.calSpeciesPopover.hidden = true;
+    DOM.calSpeciesBtn.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) DOM.calSpeciesBtn.focus();
+  }
+
+  function selectCalendarSpecies(speciesName) {
+    if (!speciesName || !calSpeciesNames.has(speciesName)) return;
+    state.calendar.species = speciesName;
+    closeSpeciesPopover(false);
+    saveCalendarPrefs();
+    renderCalendars();
+  }
+
+  function stepCalendarSpecies(delta) {
+    if (!calSpeciesListData.length) return;
+    const idx = calSpeciesListData.findIndex(s => s.name === state.calendar.species);
+    const nextIdx = idx === -1 ? 0 : Math.max(0, Math.min(calSpeciesListData.length - 1, idx + delta));
+    if (calSpeciesListData[nextIdx]) {
+      selectCalendarSpecies(calSpeciesListData[nextIdx].name);
+    }
+  }
+
+  function renderCalendars() {
+    if (!DOM.calMatrix) return;
+    if (!window.CalendarCore || !window.CalendarView) {
+      DOM.calMatrix.textContent = 'Calendar module failed to load.';
+      return;
+    }
+    const core = window.CalendarCore;
+    const view = window.CalendarView;
+    const cal = state.calendar;
+    const rules = getCalendarRules();
+    const regionObs = state.observations || [];
+
+    // --- Sub-tab state ---
+    if (DOM.calSubtabs) {
+      for (const btn of DOM.calSubtabs.querySelectorAll('.cal-subtab')) {
+        const active = btn.dataset.view === cal.view;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      }
+    }
+    if (DOM.calSpeciesGroup) DOM.calSpeciesGroup.style.display = cal.view === 'single' ? '' : 'none';
+    if (cal.view !== 'single') closeSpeciesPopover(false);
+
+    // --- Date range defaults (full span of the region-filtered data) ---
+    const span = core.getDateSpan(regionObs);
+    for (const el of [DOM.calDateStart, DOM.calDateEnd]) {
+      if (!el) continue;
+      el.min = span ? span.min : '';
+      el.max = span ? span.max : '';
+    }
+    if (DOM.calDateStart) DOM.calDateStart.value = cal.dateStart || (span ? span.min : '');
+    if (DOM.calDateEnd) DOM.calDateEnd.value = cal.dateEnd || (span ? span.max : '');
+
+    // --- Apply calendar-local date filters ---
+    const filtered = core.filterObservations(regionObs, {
+      dateStart: cal.dateStart || undefined,
+      dateEnd: cal.dateEnd || undefined,
+    });
+
+    // --- Compute active view ---
+    let result = null;
+    let emptyMessage = 'No observations match the current filters.';
+    if (cal.view === 'single') {
+      const rawSpeciesList = core.buildSpeciesList(filtered, rules);
+      syncSpeciesSortButtons();
+      calSpeciesListData = state.calendar.speciesSort === 'tax'
+        ? rawSpeciesList.slice()
+        : rawSpeciesList.slice().sort((a, b) => a.name.localeCompare(b.name));
+      calSpeciesNames = new Set(calSpeciesListData.map(s => s.name));
+
+      // Auto-select first species only when no species has been chosen yet
+      if (!cal.species && calSpeciesListData.length > 0) {
+        cal.species = calSpeciesListData[0].name;
+      }
+
+      if (DOM.calSpeciesBtnLabel) {
+        DOM.calSpeciesBtnLabel.textContent = cal.species || 'Select a species…';
+      }
+      updateSpeciesNavButtons();
+
+      if (!cal.species) {
+        DOM.calMatrix.innerHTML = '<div class="cal-empty">No species records match the current filters.</div>';
+        if (DOM.calSummary) DOM.calSummary.textContent = `0 species available · ${describeCalendarFilters(span)}`;
+        cal.lastResult = null;
+        return;
+      }
+      result = core.computeSingleSpecies(filtered, cal.species, rules);
+      if (!calSpeciesNames.has(cal.species)) {
+        emptyMessage = `${cal.species} has no records with the current filters.`;
+      }
+    } else if (cal.view === 'checklists') {
+      result = core.computeTotalChecklists(filtered);
+    } else if (cal.view === 'bigday') {
+      result = core.computeBigDay(filtered, rules);
+    } else {
+      result = core.computeTotalSpecies(filtered, rules);
+    }
+    cal.lastResult = result;
+
+    const layoutMode = getEffectiveCalendarLayoutMode();
+    view.renderMatrix(DOM.calMatrix, result, { emptyMessage, layoutMode });
+    // Re-evaluate after renderMatrix so .cal-scroll.clientWidth is measured accurately
+    const postRenderMode = getEffectiveCalendarLayoutMode();
+    syncCalendarLayoutModeButtons(postRenderMode);
+    if (postRenderMode !== layoutMode) {
+      view.setLayoutMode(DOM.calMatrix, postRenderMode);
+    }
+
+    if (DOM.calSummary) {
+      const t = result.totals || { observations: 0, checklists: 0, years: [] };
+      const years = t.years && t.years.length
+        ? (t.years.length === 1 ? `${t.years[0]}` : `${t.years[0]}–${t.years[t.years.length - 1]} (${t.years.length} yrs)`)
+        : 'no years';
+      const head = cal.view === 'single' && cal.species ? `${cal.species} · ` : '';
+      DOM.calSummary.textContent =
+        `${head}${t.checklists.toLocaleString()} checklists · ${t.observations.toLocaleString()} observations · ${years} · ${describeCalendarFilters(span)}`;
+    }
+  }
+
+  function saveCalendarPrefs() {
+    DB.setSetting('calendarPrefs', {
+      view: state.calendar.view,
+      species: state.calendar.species,
+      speciesSort: state.calendar.speciesSort,
+      layoutModeDesktop: state.calendar.layoutModeDesktop,
+      layoutModeMobile: state.calendar.layoutModeMobile,
+    });
+  }
+
+  function calendarFileBase() {
+    const cal = state.calendar;
+    const parts = ['ebird-calendar', cal.view];
+    if (cal.view === 'single' && cal.species) parts.push(cal.species);
+    parts.push(describeActiveRegion());
+    return parts.join('_').replace(/[^\w\-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+  }
+
+  function handleCalendarExportCSV() {
+    const result = state.calendar.lastResult;
+    if (!result) { showToast('Nothing to export yet.', 'info'); return; }
+    const csv = window.CalendarCore.toCSV(result);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = calendarFileBase() + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function handleCalendarExportPNG() {
+    const cal = state.calendar;
+    const result = cal.lastResult;
+    if (!result) { showToast('Nothing to export yet.', 'info'); return; }
+    const span = window.CalendarCore.getDateSpan(state.observations || []);
+    let title = CALENDAR_TITLES[cal.view] || 'Calendar';
+    if (cal.view === 'single' && cal.species) title += ` — ${cal.species}`;
+    window.CalendarView.exportPNG(result, {
+      title,
+      subtitle: describeCalendarFilters(span),
+      filename: calendarFileBase() + '.png',
+    });
+  }
+
+  function highlightSpeciesOption(newIndex) {
+    if (!DOM.calSpeciesOptions) return;
+    const items = DOM.calSpeciesOptions.querySelectorAll('.cal-species-opt');
+    if (!items.length) return;
+    const clamped = Math.max(0, Math.min(items.length - 1, newIndex));
+    items.forEach((el, idx) => {
+      el.classList.toggle('is-highlighted', idx === clamped);
+    });
+    calHighlightedIndex = clamped;
+    if (items[clamped] && typeof items[clamped].scrollIntoView === 'function') {
+      items[clamped].scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function bindCalendarEvents() {
+    if (DOM.tabCalendars) DOM.tabCalendars.addEventListener('click', () => switchTab('calendars'));
+
+    if (DOM.calSubtabs) {
+      DOM.calSubtabs.addEventListener('click', (e) => {
+        const btn = e.target.closest('.cal-subtab');
+        if (!btn || !btn.dataset.view || btn.dataset.view === state.calendar.view) return;
+        state.calendar.view = btn.dataset.view;
+        saveCalendarPrefs();
+        renderCalendars();
+      });
+    }
+
+    // Mobile collapsible Date & Export bar toggle
+    if (DOM.btnCalToggleControls && DOM.calControlsBar) {
+      DOM.btnCalToggleControls.addEventListener('click', () => {
+        const isOpen = DOM.calControlsBar.classList.toggle('is-open');
+        DOM.btnCalToggleControls.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      });
+    }
+
+    // Custom Searchable Species Dropdown
+    if (DOM.calSpeciesBtn) {
+      DOM.calSpeciesBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (DOM.calSpeciesPopover && !DOM.calSpeciesPopover.hidden) {
+          closeSpeciesPopover(true);
+        } else {
+          openSpeciesPopover();
+        }
+      });
+    }
+
+    if (DOM.btnCalSpeciesPrev) {
+      DOM.btnCalSpeciesPrev.addEventListener('click', () => stepCalendarSpecies(-1));
+    }
+    if (DOM.btnCalSpeciesNext) {
+      DOM.btnCalSpeciesNext.addEventListener('click', () => stepCalendarSpecies(1));
+    }
+
+    if (DOM.calSpeciesSearch) {
+      DOM.calSpeciesSearch.addEventListener('input', () => {
+        const val = DOM.calSpeciesSearch.value;
+        if (DOM.btnCalSpeciesSearchClear) {
+          DOM.btnCalSpeciesSearchClear.hidden = val.length === 0;
+        }
+        renderSpeciesDropdownOptions(val);
+      });
+
+      DOM.calSpeciesSearch.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          closeSpeciesPopover(true);
+          return;
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          highlightSpeciesOption(calHighlightedIndex + 1);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          highlightSpeciesOption(calHighlightedIndex <= 0 ? 0 : calHighlightedIndex - 1);
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (!DOM.calSpeciesOptions) return;
+          const items = DOM.calSpeciesOptions.querySelectorAll('.cal-species-opt');
+          const target = items[calHighlightedIndex >= 0 ? calHighlightedIndex : 0];
+          if (target && target.dataset.species) {
+            selectCalendarSpecies(target.dataset.species);
+          }
+        }
+      });
+    }
+
+    if (DOM.btnCalSpeciesSearchClear) {
+      DOM.btnCalSpeciesSearchClear.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (DOM.calSpeciesSearch) {
+          DOM.calSpeciesSearch.value = '';
+          DOM.calSpeciesSearch.focus();
+        }
+        DOM.btnCalSpeciesSearchClear.hidden = true;
+        renderSpeciesDropdownOptions('');
+      });
+    }
+
+    if (DOM.calSpeciesOptions) {
+      DOM.calSpeciesOptions.addEventListener('click', (e) => {
+        const opt = e.target.closest('.cal-species-opt');
+        if (!opt || !opt.dataset.species) return;
+        selectCalendarSpecies(opt.dataset.species);
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (DOM.calSpeciesPopover && !DOM.calSpeciesPopover.hidden) {
+        if (DOM.calSpeciesPicker && !DOM.calSpeciesPicker.contains(e.target)) {
+          closeSpeciesPopover(false);
+        }
+      }
+    });
+
+    // Species sort order toggle (A–Z | Taxonomic)
+    if (DOM.calSpeciesSort) {
+      DOM.calSpeciesSort.addEventListener('click', (e) => {
+        const btn = e.target.closest('.cal-sort-btn');
+        if (!btn || !btn.dataset.sort || btn.dataset.sort === state.calendar.speciesSort) return;
+        state.calendar.speciesSort = btn.dataset.sort;
+        syncSpeciesSortButtons();
+        saveCalendarPrefs();
+        if (state.calendar.speciesSort === 'tax') {
+          calSpeciesListData.sort((a, b) => (a.taxonomicOrder || Infinity) - (b.taxonomicOrder || Infinity) || a.name.localeCompare(b.name));
+        } else {
+          calSpeciesListData.sort((a, b) => a.name.localeCompare(b.name));
+        }
+        updateSpeciesNavButtons();
+        if (DOM.calSpeciesPopover && !DOM.calSpeciesPopover.hidden) {
+          renderSpeciesDropdownOptions(DOM.calSpeciesSearch ? DOM.calSpeciesSearch.value : '');
+        }
+      });
+    }
+
+    // Layout mode switcher (Scroll | Wrap | Fit)
+    if (DOM.calLayoutModes) {
+      DOM.calLayoutModes.addEventListener('click', (e) => {
+        const btn = e.target.closest('.cal-mode-btn');
+        if (!btn || !btn.dataset.mode) return;
+        const mode = btn.dataset.mode;
+        if (isCalendarMobileViewport()) {
+          state.calendar.layoutModeMobile = mode;
+        } else {
+          state.calendar.layoutModeDesktop = mode;
+        }
+        syncCalendarLayoutModeButtons(mode);
+        saveCalendarPrefs();
+        if (window.CalendarView && DOM.calMatrix) {
+          window.CalendarView.setLayoutMode(DOM.calMatrix, mode);
+        }
+      });
+    }
+
+    // Automatically show/hide the Scroll | Wrap | Fit menu and switch layout when the table overflows
+    const syncViewportCalendarLayout = () => {
+      const mode = getEffectiveCalendarLayoutMode();
+      syncCalendarLayoutModeButtons(mode);
+      if (window.CalendarView && DOM.calMatrix) {
+        window.CalendarView.setLayoutMode(DOM.calMatrix, mode);
+      }
+    };
+    window.addEventListener('resize', syncViewportCalendarLayout);
+    if (typeof ResizeObserver !== 'undefined' && DOM.calMatrix) {
+      const ro = new ResizeObserver(syncViewportCalendarLayout);
+      ro.observe(DOM.calMatrix);
+    }
+
+    const onDateChange = () => {
+      const span = window.CalendarCore ? window.CalendarCore.getDateSpan(state.observations || []) : null;
+      let start = DOM.calDateStart ? DOM.calDateStart.value : '';
+      let end = DOM.calDateEnd ? DOM.calDateEnd.value : '';
+      if (start && end && start > end) {
+        showToast('Start date is after end date — swapped them.', 'info');
+        [start, end] = [end, start];
+      }
+      // Store '' when equal to the data span so the range follows future region changes
+      state.calendar.dateStart = span && start === span.min ? '' : start;
+      state.calendar.dateEnd = span && end === span.max ? '' : end;
+      renderCalendars();
+    };
+    if (DOM.calDateStart) DOM.calDateStart.addEventListener('change', onDateChange);
+    if (DOM.calDateEnd) DOM.calDateEnd.addEventListener('change', onDateChange);
+
+    if (DOM.btnCalResetFilters) {
+      DOM.btnCalResetFilters.addEventListener('click', () => {
+        state.calendar.dateStart = '';
+        state.calendar.dateEnd = '';
+        renderCalendars();
+      });
+    }
+
+    if (DOM.btnCalExportCsv) DOM.btnCalExportCsv.addEventListener('click', handleCalendarExportCSV);
+    if (DOM.btnCalExportPng) DOM.btnCalExportPng.addEventListener('click', handleCalendarExportPNG);
   }
 
   function computeTickMilestones() {
@@ -1720,6 +2351,41 @@
     showLoading('Rendering Tick Explorer...');
 
     try {
+      // Dynamically populate year selector options based on unique years in the active dataset
+      if (DOM.quickPickYearSelect) {
+        const currentYearVal = DOM.quickPickYearSelect.value;
+        const years = new Set();
+        for (const obs of state.observations) {
+          if (obs.date) {
+            const yStr = obs.date.substring(0, 4);
+            if (yStr && !isNaN(yStr)) {
+              years.add(parseInt(yStr));
+            }
+          }
+        }
+        const sortedYears = Array.from(years).sort((a, b) => b - a);
+
+        DOM.quickPickYearSelect.innerHTML = '<option value="">Year...</option>';
+        for (const yr of sortedYears) {
+          const opt = document.createElement('option');
+          opt.value = yr.toString();
+          opt.textContent = yr.toString();
+          DOM.quickPickYearSelect.appendChild(opt);
+        }
+        let activeYearVal = currentYearVal;
+        if (!activeYearVal && state.tickDateStart) {
+          const startYear = state.tickDateStart.substring(0, 4);
+          if (state.tickDateStart.endsWith('-01-01')) {
+            if (!state.tickDateEnd || state.tickDateEnd.startsWith(startYear)) {
+              activeYearVal = startYear;
+            }
+          }
+        }
+        if (activeYearVal && years.has(parseInt(activeYearVal))) {
+          DOM.quickPickYearSelect.value = activeYearVal;
+        }
+      }
+
       const centroids = computeTickMilestones();
 
 
@@ -3761,6 +4427,18 @@
       state.selectedMapCounty = '';
       state.tickDateStart = '';
       state.tickDateEnd = '';
+      state.filterCountry = '';
+      if (DOM.filterCountry) DOM.filterCountry.value = '';
+      state.calendar = {
+        view: 'species',
+        species: '',
+        speciesSort: 'alpha',
+        layoutModeDesktop: 'scroll',
+        layoutModeMobile: 'wrap',
+        dateStart: '',
+        dateEnd: '',
+        lastResult: null,
+      };
       
       syncViewVisibility();
       showToast('All data cleared.', 'warning');
@@ -4763,6 +5441,23 @@
     DOM.btnClearData.addEventListener('click', handleClearData);
 
     // Region filters
+    if (DOM.filterCountry) {
+      DOM.filterCountry.addEventListener('change', () => {
+        state.filterCountry = DOM.filterCountry.value;
+        state.filterState = '';
+        state.filterCounty = '';
+        state.selectedMapCounty = '';
+        state.selectedCustomGroup = '';
+        if (DOM.filterCustomGroup) DOM.filterCustomGroup.value = '';
+        if (DOM.filterCounty) DOM.filterCounty.disabled = false;
+        populateRegionFilters();
+        DB.setSetting('filterCountry', state.filterCountry);
+        DB.setSetting('filterState', '');
+        DB.setSetting('filterCounty', '');
+        updateDefaultRegionButton();
+        if (state.isDataLoaded) refreshGrid();
+      });
+    }
     DOM.filterState.addEventListener('change', (e) => {
       state.filterState = DOM.filterState.value;
       state.filterCounty = '';
@@ -4774,6 +5469,11 @@
       if (DOM.filterCounty) DOM.filterCounty.disabled = false;
       
       populateCountyFilter();
+      if (state.filterState && DOM.filterCountry) {
+        state.filterCountry = countryOf(state.filterState);
+        DOM.filterCountry.value = state.filterCountry;
+        DB.setSetting('filterCountry', state.filterCountry);
+      }
       DB.setSetting('filterState', state.filterState);
       DB.setSetting('filterCounty', '');
       updateDefaultRegionButton();
@@ -4800,7 +5500,16 @@
           const activeGroup = (state.customRegionGroups || []).find(g => g.id === state.selectedCustomGroup);
           if (activeGroup) {
             state.filterState = activeGroup.state;
+            if (DOM.filterCountry) {
+              state.filterCountry = countryOf(activeGroup.state);
+              populateRegionFilters();
+              DB.setSetting('filterCountry', state.filterCountry);
+            }
             DOM.filterState.value = activeGroup.state;
+            if (DOM.filterCounty) {
+              DOM.filterCounty.value = '';
+              DOM.filterCounty.disabled = true;
+            }
           }
         } else {
           if (DOM.filterCounty) DOM.filterCounty.disabled = false;
@@ -4951,6 +5660,7 @@
     DOM.tabYoY.addEventListener('click', () => switchTab('yoy'));
     DOM.tabTick.addEventListener('click', () => switchTab('tick'));
     DOM.tabSettings.addEventListener('click', () => switchTab('settings'));
+    bindCalendarEvents();
 
     // Tick Date range analyzer
     DOM.tickDateStart.addEventListener('change', (e) => {
@@ -5054,25 +5764,42 @@
       });
     }
 
-    // Quick-pick date presets
-    document.querySelectorAll('.quick-pick-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const preset = btn.dataset.preset;
+    // Quick-pick year select dropdown
+    if (DOM.quickPickYearSelect) {
+      DOM.quickPickYearSelect.addEventListener('change', (e) => {
+        const year = e.target.value;
+        if (!year) return;
+
+        const start = new Date(parseInt(year), 0, 1);
+        const end = new Date(parseInt(year), 11, 31);
+
+        state.tickDateStart = formatDateISO(start);
+        state.tickDateEnd = formatDateISO(end);
+        DOM.tickDateStart.value = state.tickDateStart;
+        DOM.tickDateEnd.value = state.tickDateEnd;
+
+        // Reset the range dropdown selection
+        if (DOM.quickPickRangeSelect) {
+          DOM.quickPickRangeSelect.value = '';
+        }
+
+        renderTickExplorer();
+      });
+    }
+
+    // Quick-pick range select dropdown
+    if (DOM.quickPickRangeSelect) {
+      DOM.quickPickRangeSelect.addEventListener('change', (e) => {
+        const preset = e.target.value;
+        if (!preset) return;
+
         const today = new Date();
         let start, end;
 
         switch (preset) {
-          case 'this-year':
-            start = new Date(today.getFullYear(), 0, 1);
-            end = today;
-            break;
           case 'this-month':
             start = new Date(today.getFullYear(), today.getMonth(), 1);
             end = today;
-            break;
-          case 'last-year':
-            start = new Date(today.getFullYear() - 1, 0, 1);
-            end = new Date(today.getFullYear() - 1, 11, 31);
             break;
           case 'last-7':
             start = new Date(today.getTime() - 7 * 86400000);
@@ -5095,13 +5822,14 @@
         DOM.tickDateStart.value = state.tickDateStart;
         DOM.tickDateEnd.value = state.tickDateEnd;
 
-        // Highlight active quick pick
-        document.querySelectorAll('.quick-pick-btn').forEach(b => b.classList.remove('is-active'));
-        btn.classList.add('is-active');
+        // Reset the year dropdown selection
+        if (DOM.quickPickYearSelect) {
+          DOM.quickPickYearSelect.value = '';
+        }
 
         renderTickExplorer();
       });
-    });
+    }
 
     // Download plain map image
     if (DOM.btnDownloadMap) {
@@ -5319,7 +6047,12 @@
   }
 
   function clearQuickPickActive() {
-    document.querySelectorAll('.quick-pick-btn').forEach(b => b.classList.remove('is-active'));
+    if (DOM.quickPickYearSelect) {
+      DOM.quickPickYearSelect.value = '';
+    }
+    if (DOM.quickPickRangeSelect) {
+      DOM.quickPickRangeSelect.value = '';
+    }
   }
 
   function repositionHeaderActions() {
@@ -5362,8 +6095,7 @@
     state.tickDateEnd = formatDateISO(today);
     DOM.tickDateStart.value = state.tickDateStart;
     DOM.tickDateEnd.value = state.tickDateEnd;
-    const thisYearBtn = document.querySelector('.quick-pick-btn[data-preset="this-year"]');
-    if (thisYearBtn) thisYearBtn.classList.add('is-active');
+
 
     initDashboard();
   }

@@ -1201,8 +1201,8 @@ a:hover {
 .tick-analyzer-bar__header-info {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  justify-content: flex-start;
+  gap: var(--space-4);
   flex-wrap: wrap;
   width: 100%;
 }
@@ -1314,7 +1314,7 @@ a:hover {
 
 .tick-dashboard-body {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   gap: var(--space-4);
   flex: 1;
 }
